@@ -1,9 +1,11 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { In, Repository } from 'typeorm';
+import { Inject, Injectable } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Roles } from '../entities/role.entity';
-import { Permissions } from '../entities/permission.entity';
+import { In, Repository } from 'typeorm';
+
 import { Permission, Role } from 'src/common/constants/rbac.enum';
+
+import { Permissions } from '../entities/permission.entity';
+import { Roles } from '../entities/role.entity';
 
 @Injectable()
 export class RbacService {

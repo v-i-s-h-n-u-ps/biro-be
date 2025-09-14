@@ -1,7 +1,8 @@
 import { Column, Entity, JoinTable, ManyToMany, PrimaryColumn } from 'typeorm';
 
-import { Permissions } from './permission.entity';
 import { Role } from 'src/common/constants/rbac.enum';
+
+import { Permissions } from './permission.entity';
 
 @Entity('roles')
 export class Roles {

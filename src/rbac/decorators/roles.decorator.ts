@@ -20,7 +20,7 @@ export function Roles(
   }
 
   return (
-    target: Function | Object,
+    target: (new (...args: unknown[]) => unknown) | object,
     propertyKey?: string | symbol,
     descriptor?: PropertyDescriptor,
   ) => {

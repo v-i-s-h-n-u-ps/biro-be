@@ -1,17 +1,12 @@
-// src/auth/auth.service.ts
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import * as admin from 'firebase-admin';
+
 import { User } from 'src/users/entities/users.entity';
 import { UsersService } from 'src/users/services/users.service';
-import { RbacService } from 'src/rbac/services/rbac.service';
-import { Role } from 'src/common/constants/rbac.enum';
 
 @Injectable()
 export class AuthService {
-  constructor(
-    private readonly usersService: UsersService,
-    private readonly rbacService: RbacService, // RBAC module handles roles/permissions
-  ) {}
+  constructor(private readonly usersService: UsersService) {}
 
   /**
    * Verify Firebase ID token and return user with roles & permissions
@@ -27,7 +22,7 @@ export class AuthService {
           uid: decodedToken.uid,
           email: decodedToken.email ?? undefined,
           phone: decodedToken.phone_number ?? undefined,
-          name: decodedToken.name ?? 'Anonymous',
+          name: 'Anonymous',
         });
       }
 

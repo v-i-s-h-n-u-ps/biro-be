@@ -1,9 +1,10 @@
-import { Controller, Post, Body, Headers } from '@nestjs/common';
-
-import { AuthService } from '../services/auth.service';
+import { Body, Controller, Headers, Post } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
+
 import { UserResponseDto } from 'src/common/dtos/user-response.dto';
+
 import { LogoutResponseDto } from '../dtos/logout-response.dto';
+import { AuthService } from '../services/auth.service';
 
 @Controller('auth')
 export class AuthController {

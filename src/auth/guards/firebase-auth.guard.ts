@@ -1,17 +1,18 @@
 // src/auth/guards/firebase-auth.guard.ts
 import {
-  Injectable,
   CanActivate,
   ExecutionContext,
-  UnauthorizedException,
   ForbiddenException,
+  Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { Request } from 'express';
 import * as admin from 'firebase-admin';
 
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<Request>();
     const authHeader = request.headers['authorization'];
 
     if (!authHeader) {
@@ -42,8 +43,10 @@ export class FirebaseAuthGuard implements CanActivate {
       };
 
       return true;
-    } catch (err) {
-      throw new UnauthorizedException('Invalid or expired Firebase token');
+    } catch (err: unknown) {
+      throw new UnauthorizedException(
+        'Invalid or expired Firebase token' + (err as Error).message,
+      );
     }
   }
 }

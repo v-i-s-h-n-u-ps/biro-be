@@ -1,8 +1,10 @@
-import { Module, forwardRef } from '@nestjs/common';
-import { UsersModule } from 'src/users/users.module';
+import { forwardRef, Module } from '@nestjs/common';
+
 import { RbacModule } from 'src/rbac/rbac.module';
-import { AuthService } from './services/auth.service';
+import { UsersModule } from 'src/users/users.module';
+
 import { FirebaseAuthGuard } from './guards/firebase-auth.guard';
+import { AuthService } from './services/auth.service';
 
 @Module({
   imports: [forwardRef(() => UsersModule), forwardRef(() => RbacModule)],

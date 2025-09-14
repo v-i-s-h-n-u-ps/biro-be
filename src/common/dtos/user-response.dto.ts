@@ -1,5 +1,6 @@
+import { Expose } from 'class-transformer';
+
 import { Role } from 'src/common/constants/rbac.enum';
-import { Expose, Transform } from 'class-transformer';
 
 export class UserResponseDto {
   @Expose({ name: 'id' })
@@ -18,8 +19,5 @@ export class UserResponseDto {
   phone?: string;
 
   @Expose({ name: 'roles' })
-  @Transform(({ value }) => value.map((role: Role) => role.toLowerCase()), {
-    toPlainOnly: true,
-  })
   roles: Role[];
 }

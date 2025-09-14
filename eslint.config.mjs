@@ -4,7 +4,6 @@ import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended'
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
-import pluginImport from 'eslint-plugin-import';
 
 export default tseslint.config(
   {
@@ -16,7 +15,6 @@ export default tseslint.config(
   {
     plugins: {
       'simple-import-sort': simpleImportSort,
-      import: pluginImport,
     },
     languageOptions: {
       globals: {
@@ -38,28 +36,22 @@ export default tseslint.config(
         'error',
         {
           groups: [
-            // 1. Node.js built-ins
-            ['^node:', `^(${require('module').builtinModules.join('|')})(/|$)`],
-
-            // 2. External packages
-            ['^@?\\w'],
-
-            // 3. Internal packages (e.g. @app/* or src/* aliases)
-            ['^(@app|src|@/)(/.*|$)'],
-
-            // 4. Parent imports
+            // Packages `react` etc.
+            ['^react', '^@?\\w'],
+            // Internal imports from `src/`
+            ['^src/', '^@/'],
+            // Side effect imports
+            ['^\\u0000'],
+            // Parent imports
             ['^\\.\\.(?!/?$)', '^\\.\\./?$'],
-
-            // 5. Sibling imports
+            // Other relative imports
             ['^\\./(?=.*/)(?!/?$)', '^\\.(?!/?$)', '^\\./?$'],
-
-            // 6. Style imports
+            // Style imports
             ['^.+\\.s?css$'],
           ],
         },
       ],
       'simple-import-sort/exports': 'error',
-      'import/no-duplicates': 'error',
     },
   },
 );

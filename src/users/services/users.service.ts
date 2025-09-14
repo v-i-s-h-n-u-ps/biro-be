@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from '../entities/users.entity';
-import { Roles } from 'src/rbac/entities/role.entity';
+import { Repository } from 'typeorm';
+
 import { Role } from 'src/common/constants/rbac.enum';
 import { RbacService } from 'src/rbac/services/rbac.service';
+
+import { User } from '../entities/users.entity';
 
 @Injectable()
 export class UsersService {

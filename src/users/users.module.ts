@@ -1,13 +1,15 @@
-import { Module, forwardRef } from '@nestjs/common';
-import { UsersService } from './services/users.service';
-import { UsersController } from './controllers/users.controller';
-import { AuthModule } from 'src/auth/auth.module';
-import { RbacModule } from 'src/rbac/rbac.module';
+import { forwardRef, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { FirebaseAuthGuard } from 'src/auth/guards/firebase-auth.guard';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+
+import { AuthModule } from 'src/auth/auth.module';
+import { FirebaseAuthGuard } from 'src/auth/guards/firebase-auth.guard';
+import { RbacModule } from 'src/rbac/rbac.module';
+
+import { UsersController } from './controllers/users.controller';
 import { User } from './entities/users.entity';
+import { UsersService } from './services/users.service';
 
 @Module({
   imports: [forwardRef(() => AuthModule), forwardRef(() => RbacModule)],

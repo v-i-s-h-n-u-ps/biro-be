@@ -1,12 +1,13 @@
-import { Roles } from 'src/rbac/entities/role.entity';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
-  ManyToMany,
-  JoinTable,
+  Entity,
   Index,
+  JoinTable,
+  ManyToMany,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
+
+import { Roles } from 'src/rbac/entities/role.entity';
 
 @Entity('users')
 export class User {
@@ -27,7 +28,7 @@ export class User {
   phone?: string;
 
   @Column({ type: 'boolean', default: true })
-  isVerified: boolean;
+  emailVerified: boolean;
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;

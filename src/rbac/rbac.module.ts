@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Roles } from './entities/role.entity';
-import { Permissions } from './entities/permission.entity';
-import { RbacService } from './services/rbac.service';
 import { DataSource } from 'typeorm';
-import { RolesGuard } from './guards/roles.guard';
+
+import { Permissions } from './entities/permission.entity';
+import { Roles } from './entities/role.entity';
 import { PermissionsGuard } from './guards/permissions.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { RbacService } from './services/rbac.service';
 
 @Module({
   providers: [
