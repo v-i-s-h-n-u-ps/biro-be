@@ -1,9 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AuthModule } from 'src/auth/auth.module';
-import { FirebaseAuthGuard } from 'src/auth/guards/firebase-auth.guard';
 import { RbacModule } from 'src/rbac/rbac.module';
 
 import { UsersController } from './controllers/users.controller';
@@ -17,13 +15,7 @@ import { UsersService } from './services/users.service';
     TypeOrmModule.forFeature([User]),
   ],
   controllers: [UsersController],
-  providers: [
-    UsersService,
-    {
-      provide: APP_GUARD, // apply FirebaseAuthGuard to all routes in this module
-      useClass: FirebaseAuthGuard,
-    },
-  ],
+  providers: [UsersService],
   exports: [UsersService],
 })
 export class UsersModule {}

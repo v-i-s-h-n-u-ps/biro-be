@@ -14,7 +14,7 @@ import { UsersService } from 'src/users/services/users.service';
 import { LogoutResponseDto } from '../dtos/logout-response.dto';
 import { AuthService } from '../services/auth.service';
 
-@Controller('auth')
+@Controller({ path: 'auth', version: '1' })
 export class AuthController {
   constructor(
     private readonly authService: AuthService,

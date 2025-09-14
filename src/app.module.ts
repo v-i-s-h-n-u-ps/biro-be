@@ -5,6 +5,7 @@ import databaseConfig from 'config/database.config';
 import { LoggerModule } from 'nestjs-pino';
 
 import { AuthModule } from './auth/auth.module';
+import { FirebaseModule } from './common/firebase/firebase.module';
 import { RbacModule } from './rbac/rbac.module';
 import { UsersModule } from './users/users.module';
 import { AppController } from './app.controller';
@@ -12,6 +13,7 @@ import { AppService } from './app.service';
 
 @Module({
   imports: [
+    FirebaseModule,
     AuthModule,
     RbacModule,
     UsersModule,
@@ -36,12 +38,15 @@ import { AppService } from './app.service';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         pinoHttp: {
-          level: config.get('VERBOSE_LOGGING') ? 'trace' : 'info',
-          transport: {
-            target: 'pino-pretty',
-            options: { translateTime: 'SYS:standard', singleLine: true },
-          },
-          timestamp: config.get('MODE') === 'local',
+          level: config.get('MODE') === 'production' ? 'info' : 'trace',
+          transport:
+            config.get('MODE') === 'production'
+              ? undefined
+              : {
+                  target: 'pino-pretty',
+                  options: { translateTime: 'SYS:standard', singleLine: true },
+                },
+          timestamp: () => `,"time":"${new Date().toISOString()}"`,
         },
       }),
     }),

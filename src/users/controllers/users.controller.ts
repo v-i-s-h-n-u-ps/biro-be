@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 
+import { FirebaseAuthGuard } from 'src/auth/guards/firebase-auth.guard';
 import { UserResponseDto } from 'src/common/dtos/user-response.dto';
 import { type RequestWithUser } from 'src/common/types/request-with-user';
 import { Roles } from 'src/rbac/decorators/roles.decorator';
@@ -18,7 +19,8 @@ import { RolesGuard } from 'src/rbac/guards/roles.guard';
 import { UpdateUserRolesDto } from '../dtos/update-user-roles.dto';
 import { UsersService } from '../services/users.service';
 
-@Controller('users')
+@UseGuards(FirebaseAuthGuard)
+@Controller({ path: 'users', version: '1' })
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
