@@ -24,7 +24,9 @@ export class UsersController {
 
   @Get('me')
   async getProfile(@Req() req: RequestWithUser) {
-    const user = await this.usersService.findByUid(req.user.uid);
+    const user = await this.usersService.findByFirebaseUid(
+      req.user.firebaseUid,
+    );
     return plainToInstance(UserResponseDto, user, { strategy: 'excludeAll' });
   }
 

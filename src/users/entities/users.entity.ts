@@ -1,10 +1,12 @@
 import {
   Column,
+  CreateDateColumn,
   Entity,
   Index,
   JoinTable,
   ManyToMany,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
 import { Roles } from 'src/rbac/entities/role.entity';
@@ -16,15 +18,15 @@ export class User {
 
   @Index({ unique: true })
   @Column({ type: 'varchar', nullable: false, unique: true })
-  uid: string; // firebase uid (unique)
+  firebaseUid: string; // firebase uid (unique)
 
   @Column({ type: 'varchar' })
   name: string;
 
-  @Column({ type: 'varchar', nullable: true, unique: true })
+  @Column({ type: 'citext', nullable: true, unique: true })
   email?: string;
 
-  @Column({ type: 'varchar', nullable: true, unique: true })
+  @Column({ type: 'citext', nullable: true, unique: true })
   phone?: string;
 
   @Column({ type: 'boolean', default: true })
@@ -33,6 +35,9 @@ export class User {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  @Column({ type: 'timestamp', nullable: true })
+  lastLoginAt?: Date;
+
   @ManyToMany(() => Roles, { eager: true })
   @JoinTable({
     name: 'user_roles',
@@ -40,4 +45,10 @@ export class User {
     inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
   })
   roles: Roles[];
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }

@@ -17,30 +17,33 @@ export class UsersService {
 
   // Create a new user after Firebase signup
   async createUser({
-    uid,
+    firebaseUid,
     name,
     email,
     phone,
+    emailVerified,
   }: {
-    uid: string;
+    firebaseUid: string;
     name: string;
     email?: string;
     phone?: string;
+    emailVerified?: boolean;
   }) {
     const defaultRole = await this.rbacService.getRole(Role.USER);
     const user = this.userRepo.create({
-      uid,
+      firebaseUid,
       name,
       email: email ?? undefined,
       phone: phone ?? undefined,
       roles: defaultRole ? [defaultRole] : [],
+      emailVerified: emailVerified ?? false,
     });
     return this.userRepo.save(user);
   }
 
   // Get user by Firebase UID
-  async findByUid(uid: string): Promise<User | null> {
-    return this.userRepo.findOne({ where: { uid } });
+  async findByFirebaseUid(firebaseUid: string): Promise<User | null> {
+    return this.userRepo.findOne({ where: { firebaseUid } });
   }
 
   // Get user by database ID
@@ -66,5 +69,9 @@ export class UsersService {
     const roles = await this.rbacService.getRolesByIds(roleIds);
     user.roles = roles;
     return this.userRepo.save(user);
+  }
+
+  updateLastLogin(userId: string) {
+    return this.userRepo.save({ id: userId, lastLoginAt: new Date() });
   }
 }

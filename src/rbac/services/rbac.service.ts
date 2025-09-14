@@ -1,5 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
 import { Permission, Role } from 'src/common/constants/rbac.enum';
@@ -10,9 +10,10 @@ import { Roles } from '../entities/role.entity';
 @Injectable()
 export class RbacService {
   constructor(
-    @Inject(getRepositoryToken(Roles))
+    @InjectRepository(Roles)
     private readonly roleRepo: Repository<Roles>,
-    @Inject(getRepositoryToken(Permissions))
+
+    @InjectRepository(Permissions)
     private readonly permRepo: Repository<Permissions>,
   ) {}
 

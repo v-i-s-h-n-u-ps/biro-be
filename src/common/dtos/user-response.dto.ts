@@ -1,13 +1,13 @@
 import { Expose } from 'class-transformer';
 
-import { Role } from 'src/common/constants/rbac.enum';
+import { Roles } from 'src/rbac/entities/role.entity';
 
 export class UserResponseDto {
   @Expose({ name: 'id' })
   id: string;
 
-  @Expose({ name: 'uid' })
-  uid: string;
+  @Expose({ name: 'firebase_id' })
+  firebaseUid: string;
 
   @Expose({ name: 'name' })
   name: string;
@@ -19,5 +19,5 @@ export class UserResponseDto {
   phone?: string;
 
   @Expose({ name: 'roles' })
-  roles: Role[];
+  roles: Roles[];
 }

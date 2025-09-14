@@ -1,24 +1,56 @@
-import { Body, Controller, Headers, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Headers,
+  NotFoundException,
+  Post,
+} from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
+import * as admin from 'firebase-admin';
 
 import { UserResponseDto } from 'src/common/dtos/user-response.dto';
+import { UsersService } from 'src/users/services/users.service';
 
 import { LogoutResponseDto } from '../dtos/logout-response.dto';
 import { AuthService } from '../services/auth.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly usersService: UsersService,
+  ) {}
 
   @Post('signup')
   async signup(@Body('idToken') idToken: string) {
-    const user = await this.authService.validate(idToken);
+    const decodedToken = await this.authService.validate(idToken);
+
+    let user = await this.usersService.findByFirebaseUid(decodedToken.uid);
+    if (!user) {
+      const firebaseUser = await admin.auth().getUser(decodedToken.uid);
+
+      user = await this.usersService.createUser({
+        firebaseUid: firebaseUser.uid,
+        email: firebaseUser.email,
+        phone: firebaseUser.phoneNumber,
+        name: firebaseUser.displayName || 'Anonymous',
+        emailVerified: firebaseUser.emailVerified,
+        // optionally assign default roles here
+      });
+    }
+
     return plainToInstance(UserResponseDto, user, { strategy: 'excludeAll' });
   }
 
   @Post('login')
   async login(@Body('idToken') idToken: string) {
-    const user = await this.authService.validate(idToken);
+    const decodedToken = await this.authService.validate(idToken);
+    const user = await this.usersService.findByFirebaseUid(decodedToken.uid);
+    if (!user)
+      throw new NotFoundException('User not found, please sign up first');
+
+    await this.usersService.updateLastLogin(user.id);
+
     return plainToInstance(UserResponseDto, user, { strategy: 'excludeAll' });
   }
 

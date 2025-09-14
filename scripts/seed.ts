@@ -1,12 +1,13 @@
-import { Roles } from 'src/rbac/entities/role.entity';
-import { Permissions } from 'src/rbac/entities/permission.entity';
+import { dataSource } from 'config/datasource';
+
+import { Role } from 'src/common/constants/rbac.enum';
 import {
-  RolesList,
   PermissionsList,
   RolePermissionsMap,
+  RolesList,
 } from 'src/rbac/constants/rbac.seed';
-import { dataSource } from 'config/datasource';
-import { Role } from 'src/common/constants/rbac.enum';
+import { Permissions } from 'src/rbac/entities/permission.entity';
+import { Roles } from 'src/rbac/entities/role.entity';
 import { User } from 'src/users/entities/users.entity';
 
 async function seed() {
@@ -37,7 +38,7 @@ async function seed() {
 
   const superUserFirebaseUid = 'firebase-super-admin-uid'; // Replace with actual Firebase UID
   let superUser = await userRepo.findOne({
-    where: { uid: superUserFirebaseUid },
+    where: { firebaseUid: superUserFirebaseUid },
     relations: ['roles'],
   });
 
@@ -48,7 +49,7 @@ async function seed() {
     });
 
     superUser = userRepo.create({
-      uid: superUserFirebaseUid,
+      firebaseUid: superUserFirebaseUid,
       name: 'Super Admin',
       email: 'superadmin@example.com',
       roles: adminRole ? [adminRole] : [],

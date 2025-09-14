@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { Permissions } from './entities/permission.entity';
 import { Roles } from './entities/role.entity';
@@ -9,28 +8,8 @@ import { RolesGuard } from './guards/roles.guard';
 import { RbacService } from './services/rbac.service';
 
 @Module({
-  providers: [
-    {
-      provide: getRepositoryToken(Roles),
-      useFactory: (dataSource: DataSource) => dataSource.getRepository(Roles),
-      inject: [DataSource],
-    },
-    {
-      provide: getRepositoryToken(Permissions),
-      useFactory: (dataSource: DataSource) =>
-        dataSource.getRepository(Permissions),
-      inject: [DataSource],
-    },
-    RbacService,
-    RolesGuard,
-    PermissionsGuard,
-  ],
-  exports: [
-    RbacService,
-    getRepositoryToken(Roles),
-    getRepositoryToken(Permissions),
-    RolesGuard,
-    PermissionsGuard,
-  ],
+  imports: [TypeOrmModule.forFeature([Roles, Permissions])],
+  providers: [RbacService, RolesGuard, PermissionsGuard],
+  exports: [RbacService, RolesGuard, PermissionsGuard],
 })
 export class RbacModule {}

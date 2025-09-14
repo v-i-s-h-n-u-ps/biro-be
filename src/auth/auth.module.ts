@@ -7,7 +7,7 @@ import { FirebaseAuthGuard } from './guards/firebase-auth.guard';
 import { AuthService } from './services/auth.service';
 
 @Module({
-  imports: [forwardRef(() => UsersModule), forwardRef(() => RbacModule)],
+  imports: [forwardRef(() => UsersModule), RbacModule],
   providers: [AuthService, FirebaseAuthGuard],
   exports: [AuthService, FirebaseAuthGuard],
 })

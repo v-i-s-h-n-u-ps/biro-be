@@ -1,7 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 
-import { User } from 'src/users/entities/users.entity';
 import { UsersService } from 'src/users/services/users.service';
 
 @Injectable()
@@ -11,25 +10,14 @@ export class AuthService {
   /**
    * Verify Firebase ID token and return user with roles & permissions
    */
-  async validate(token: string): Promise<User> {
+  async validate(idToken: string): Promise<admin.auth.DecodedIdToken> {
     try {
-      const decodedToken = await admin.auth().verifyIdToken(token);
-      let user = await this.usersService.findByUid(decodedToken.uid);
-
-      // If user doesn't exist, create it with default role from RBAC
-      if (!user) {
-        user = await this.usersService.createUser({
-          uid: decodedToken.uid,
-          email: decodedToken.email ?? undefined,
-          phone: decodedToken.phone_number ?? undefined,
-          name: 'Anonymous',
-        });
-      }
-
-      return user;
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      return decodedToken;
     } catch (err) {
-      console.error('Firebase token validation failed:', err);
-      throw new UnauthorizedException('Invalid Firebase token');
+      throw new UnauthorizedException(
+        'Invalid or expired Firebase token: ' + err,
+      );
     }
   }
 

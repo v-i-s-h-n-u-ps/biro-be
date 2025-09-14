@@ -9,8 +9,12 @@ import {
 import { Request } from 'express';
 import * as admin from 'firebase-admin';
 
+import { UsersService } from 'src/users/services/users.service';
+
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
+  constructor(private readonly userService: UsersService) {}
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const authHeader = request.headers['authorization'];
@@ -33,12 +37,11 @@ export class FirebaseAuthGuard implements CanActivate {
         throw new ForbiddenException('User is not verified');
       }
 
+      const user = await this.userService.findById(userRecord.uid);
+
       // Attach user to request
       request.user = {
-        uid: userRecord.uid,
-        email: userRecord.email,
-        phone: userRecord.phoneNumber,
-        emailVerified: userRecord.emailVerified,
+        ...user,
         claims: decodedToken,
       };
 
