@@ -27,6 +27,8 @@ import { NotificationHelperService } from './services/notification-helper.servic
         return admin;
       },
     },
+    FirebaseService,
+    NotificationHelperService,
   ],
   exports: ['FIREBASE_ADMIN', FirebaseService, NotificationHelperService],
 })

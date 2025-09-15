@@ -20,8 +20,12 @@ export class FirebaseService {
   /**
    * Verify Firebase ID token and return decoded payload
    */
-  async verifyIdToken(idToken: string): Promise<admin.auth.DecodedIdToken> {
+  async verify(idToken: string): Promise<admin.auth.DecodedIdToken> {
     return this.firebaseAdmin.auth().verifyIdToken(idToken);
+  }
+
+  async getUser(uid: string): Promise<admin.auth.UserRecord> {
+    return this.firebaseAdmin.auth().getUser(uid);
   }
 
   // /**

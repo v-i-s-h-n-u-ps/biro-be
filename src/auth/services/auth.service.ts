@@ -1,39 +1,62 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-import * as admin from 'firebase-admin';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+
+import { FirebaseService } from 'src/firebase/services/firebase.service';
+import { User } from 'src/users/entities/users.entity';
+import { UsersService } from 'src/users/services/users.service';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @Inject('FIREBASE_ADMIN') private readonly firebaseAdmin: typeof admin,
+    private readonly firebaseService: FirebaseService,
+    private readonly usersService: UsersService,
   ) {}
 
-  /**
-   * Verify Firebase ID token and return user with roles & permissions
-   */
-  async validate(idToken: string): Promise<admin.auth.DecodedIdToken> {
+  async validateAndLogin(idToken: string): Promise<User> {
     try {
-      const decodedToken = await this.firebaseAdmin
-        .auth()
-        .verifyIdToken(idToken);
-      return decodedToken;
-    } catch (err) {
+      const decoded = await this.firebaseService.verify(idToken);
+      const uid = decoded.uid;
+
+      // fetch Firebase user record
+      const fbUser = await this.firebaseService.getUser(uid);
+
+      // ✅ if user not in DB, register
+      let user = await this.usersService.findByFirebaseUid(uid);
+      if (!user) {
+        user = await this.usersService.createUser({
+          firebaseUid: uid,
+          name: fbUser.displayName ?? 'Anonymous',
+          email: fbUser.email ?? undefined,
+          phone: fbUser.phoneNumber ?? undefined,
+          emailVerified: fbUser.emailVerified,
+        });
+      }
+
+      // ✅ update last login
+      await this.usersService.updateLastLogin(user.id);
+
+      return user;
+    } catch (err: unknown) {
       throw new UnauthorizedException(
-        'Invalid or expired Firebase token: ' + err,
+        `Invalid or expired Firebase token: ${(err as Error).message}`,
       );
     }
   }
 
-  /**
-   * Revoke refresh tokens (logout)
-   */
-  async logout(uid: string) {
-    await this.firebaseAdmin.auth().revokeRefreshTokens(uid);
+  async logout(uid: string): Promise<void> {
+    try {
+      await this.firebaseService.revokeTokens(uid);
+    } catch (err: unknown) {
+      throw new ForbiddenException(
+        `Failed to revoke refresh tokens: ${(err as Error).message}`,
+      );
+    }
   }
 
-  /**
-   * Optionally create a custom Firebase token
-   */
   async createCustomToken(uid: string): Promise<string> {
-    return this.firebaseAdmin.auth().createCustomToken(uid);
+    return this.firebaseService.createCustomToken(uid);
   }
 }

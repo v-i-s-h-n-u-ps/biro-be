@@ -53,16 +53,6 @@ export class UsersService {
     return user;
   }
 
-  // Update user profile
-  async updateProfile(
-    id: string,
-    data: Partial<Pick<User, 'name' | 'email' | 'phone'>>,
-  ): Promise<User> {
-    const user = await this.findById(id);
-    Object.assign(user, data);
-    return this.userRepo.save(user);
-  }
-
   // Assign roles to user (admin only)
   async assignRoles(userId: string, roleIds: Role[]) {
     const user = await this.findById(userId);
@@ -73,5 +63,9 @@ export class UsersService {
 
   updateLastLogin(userId: string) {
     return this.userRepo.save({ id: userId, lastLoginAt: new Date() });
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.userRepo.delete(id);
   }
 }

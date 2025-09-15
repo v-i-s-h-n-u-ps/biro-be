@@ -4,9 +4,6 @@ export class UserResponseDto {
   @Expose({ name: 'id' })
   id: string;
 
-  @Expose({ name: 'firebase_id' })
-  firebaseUid: string;
-
   @Expose({ name: 'name' })
   name: string;
 
