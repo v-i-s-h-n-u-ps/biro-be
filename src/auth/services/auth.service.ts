@@ -36,13 +36,6 @@ export class AuthService {
         });
       }
 
-      // // ✅ if device info present, register device for push notifications
-      // await this.userDeviceService.registerDevice(
-      //   user.id,
-      //   deviceToken,
-      //   deviceType,
-      // );
-
       // ✅ update last login
       await this.usersService.updateLastLogin(user.id);
 

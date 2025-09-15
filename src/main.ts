@@ -3,6 +3,7 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 
+import { DeviceInterceptor } from './users/interceptors/device.interceptor';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -18,6 +19,7 @@ async function bootstrap() {
       excludeExtraneousValues: true,
     }),
   );
+  app.useGlobalInterceptors(app.get(DeviceInterceptor));
 
   app.use(helmet());
   app.useLogger(app.get(Logger));

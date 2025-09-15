@@ -23,6 +23,9 @@ export class UserDevice {
   @Column({ name: 'platform', type: 'varchar', length: 50 })
   platform: 'ios' | 'android' | 'web';
 
+  @Column({ name: 'os_version', type: 'varchar', length: 50, nullable: true })
+  osVersion?: string;
+
   @Column({ nullable: true })
   appVersion?: string;
 

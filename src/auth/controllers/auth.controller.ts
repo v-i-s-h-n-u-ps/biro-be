@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -20,9 +21,10 @@ import { AuthService } from '../services/auth.service';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Get('me')
-  getProfile(@Req() req: RequestWithUser) {
-    return plainToInstance(UserResponseDto, req.user, {
+  @Get('login')
+  async getProfile(@Body() body: { idToken: string }) {
+    const user = await this.authService.validateAndLogin(body.idToken);
+    return plainToInstance(UserResponseDto, user, {
       strategy: 'excludeAll',
     });
   }
