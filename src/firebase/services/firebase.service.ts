@@ -1,0 +1,109 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import * as admin from 'firebase-admin';
+import { MessagingPayload } from 'firebase-admin/messaging';
+import { Repository } from 'typeorm';
+
+// import { Device } from 'src/notifications/entities/device.entity';
+
+@Injectable()
+export class FirebaseService {
+  private readonly logger = new Logger(FirebaseService.name);
+
+  constructor(
+    @Inject('FIREBASE_ADMIN') private readonly firebaseAdmin: typeof admin,
+    // @InjectRepository(Device)
+    // private readonly deviceRepo: Repository<Device>,
+  ) {}
+
+  /**
+   * Verify Firebase ID token and return decoded payload
+   */
+  async verifyIdToken(idToken: string): Promise<admin.auth.DecodedIdToken> {
+    return this.firebaseAdmin.auth().verifyIdToken(idToken);
+  }
+
+  // /**
+  //  * Register a device for push notifications
+  //  */
+  // async registerDevice({ userId, deviceToken, platform }: DeviceRegistration) {
+  //   const existing = await this.deviceRepo.findOne({
+  //     where: { userId, deviceToken },
+  //   });
+
+  //   if (!existing) {
+  //     const device = this.deviceRepo.create({ userId, deviceToken, platform });
+  //     await this.deviceRepo.save(device);
+  //   }
+  // }
+
+  // /**
+  //  * Deregister a device (logout, uninstall, etc.)
+  //  */
+  // async deregisterDevice(deviceToken: string) {
+  //   await this.deviceRepo.delete({ deviceToken });
+  // }
+
+  /**
+   * Send a notification to a single device
+   */
+  async sendNotificationToDevice(
+    deviceToken: string,
+    payload: admin.messaging.MessagingPayload,
+  ) {
+    try {
+      await this.firebaseAdmin.messaging().send({
+        token: deviceToken,
+        notification: payload.notification,
+        data: payload.data,
+      });
+    } catch (err) {
+      this.logger.error(`Failed to send notification: ${err}`);
+    }
+  }
+
+  /**
+   * Send a notification to multiple devices
+   */
+  async sendNotificationToDevices(
+    deviceTokens: string[],
+    payload: MessagingPayload,
+  ) {
+    if (deviceTokens.length === 0) return;
+
+    try {
+      const response = await this.firebaseAdmin
+        .messaging()
+        .sendEachForMulticast({
+          tokens: deviceTokens,
+          notification: payload.notification,
+          data: payload.data,
+        });
+
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          this.logger.warn(
+            `Failed to send to token ${deviceTokens[idx]}: ${resp.error?.message}`,
+          );
+        }
+      });
+    } catch (err) {
+      this.logger.error(`Failed to send multicast notification: ${err}`);
+    }
+  }
+
+  /**
+   * Optionally create a custom Firebase token for the user
+   */
+  async createCustomToken(uid: string): Promise<string> {
+    return this.firebaseAdmin.auth().createCustomToken(uid);
+  }
+
+  /**
+   * Revoke refresh tokens for a user
+   */
+  async revokeTokens(uid: string) {
+    await this.firebaseAdmin.auth().revokeRefreshTokens(uid);
+  }
+}

@@ -46,6 +46,12 @@ export class UsersController {
     return plainToInstance(UserResponseDto, user, { strategy: 'excludeAll' });
   }
 
+  @Get(':id')
+  async getUserProfile(@Param('id', ParseUUIDPipe) id: string) {
+    const user = await this.usersService.findById(id);
+    return plainToInstance(UserResponseDto, user, { strategy: 'excludeAll' });
+  }
+
   @Patch(':id')
   @Roles('admin')
   @UseGuards(RolesGuard)

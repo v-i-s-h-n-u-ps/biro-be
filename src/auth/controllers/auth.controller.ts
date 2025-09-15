@@ -35,7 +35,6 @@ export class AuthController {
         phone: firebaseUser.phoneNumber,
         name: firebaseUser.displayName || 'Anonymous',
         emailVerified: firebaseUser.emailVerified,
-        // optionally assign default roles here
       });
     }
 

@@ -25,3 +25,11 @@ export enum Permission {
   UPDATE_ANY_STORY = 'update:any:story',
   VIEW_STORY = 'view:story',
 }
+
+export enum ResourceRole {
+  RIDE_OWNER = 'ride_owner',
+  RIDE_MEMBER = 'ride_member',
+  STORY_OWNER = 'story_owner',
+  CHAT_OWNER = 'chat_owner',
+  CHAT_MEMBER = 'chat_member',
+}

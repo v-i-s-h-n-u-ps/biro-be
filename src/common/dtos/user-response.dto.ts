@@ -1,6 +1,4 @@
-import { Expose } from 'class-transformer';
-
-import { Roles } from 'src/rbac/entities/role.entity';
+import { Expose, Type } from 'class-transformer';
 
 export class UserResponseDto {
   @Expose({ name: 'id' })
@@ -19,5 +17,23 @@ export class UserResponseDto {
   phone?: string;
 
   @Expose({ name: 'roles' })
-  roles: Roles[];
+  @Type(() => RolesResponseDto)
+  roles: RolesResponseDto[];
+}
+
+export class RolesResponseDto {
+  @Expose({ name: 'id' })
+  id: string;
+
+  @Expose({ name: 'name' })
+  name?: string;
+
+  @Expose({ name: 'permissions' })
+  @Type(() => PermissionsResponseDto)
+  permissions?: PermissionsResponseDto[];
+}
+
+export class PermissionsResponseDto {
+  @Expose({ name: 'id' })
+  id: string;
 }

@@ -2,9 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
-import { Permission, Role } from 'src/common/constants/rbac.enum';
+import { Permission, ResourceRole, Role } from 'src/common/constants/rbac.enum';
 
 import { Permissions } from '../entities/permission.entity';
+import { ResourceRoles } from '../entities/resource-roles.entity';
 import { Roles } from '../entities/role.entity';
 
 @Injectable()
@@ -15,6 +16,9 @@ export class RbacService {
 
     @InjectRepository(Permissions)
     private readonly permRepo: Repository<Permissions>,
+
+    @InjectRepository(ResourceRoles)
+    private readonly resourceRoleRepo: Repository<ResourceRoles>,
   ) {}
 
   async getRole(id: Role) {
@@ -35,6 +39,13 @@ export class RbacService {
 
   async getAllPermissions() {
     return this.permRepo.find();
+  }
+
+  async getResourceRoles(id: ResourceRole) {
+    return this.resourceRoleRepo.find({
+      where: { id },
+      relations: ['permissions'],
+    });
   }
 
   async assignPermissions(roleId: Role, permissionIds: Permission[]) {

@@ -2,6 +2,9 @@ import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 
+import { FirebaseService } from './services/firebase.service';
+import { NotificationHelperService } from './services/notification-helper.service';
+
 @Global()
 @Module({
   imports: [ConfigModule],
@@ -25,6 +28,6 @@ import * as admin from 'firebase-admin';
       },
     },
   ],
-  exports: ['FIREBASE_ADMIN'],
+  exports: ['FIREBASE_ADMIN', FirebaseService, NotificationHelperService],
 })
 export class FirebaseModule {}

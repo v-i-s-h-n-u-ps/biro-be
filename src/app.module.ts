@@ -5,7 +5,7 @@ import databaseConfig from 'config/database.config';
 import { LoggerModule } from 'nestjs-pino';
 
 import { AuthModule } from './auth/auth.module';
-import { FirebaseModule } from './common/firebase/firebase.module';
+import { FirebaseModule } from './firebase/firebase.module';
 import { RbacModule } from './rbac/rbac.module';
 import { UsersModule } from './users/users.module';
 import { AppController } from './app.controller';
