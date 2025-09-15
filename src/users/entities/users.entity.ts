@@ -5,11 +5,14 @@ import {
   Index,
   JoinTable,
   ManyToMany,
+  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 import { Roles } from 'src/rbac/entities/role.entity';
+
+import { UserProfile } from './user-profile.entity';
 
 @Entity('users')
 export class User {
@@ -19,9 +22,6 @@ export class User {
   @Index({ unique: true })
   @Column({ type: 'varchar', nullable: false, unique: true })
   firebaseUid: string; // firebase uid (unique)
-
-  @Column({ type: 'varchar' })
-  name: string;
 
   @Column({ type: 'citext', nullable: true, unique: true })
   email?: string;
@@ -45,6 +45,9 @@ export class User {
     inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
   })
   roles: Roles[];
+
+  @OneToOne(() => UserProfile, (profile) => profile.user, { cascade: true })
+  profile: UserProfile;
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;

@@ -18,13 +18,11 @@ export class UsersService {
   // Create a new user after Firebase signup
   async createUser({
     firebaseUid,
-    name,
     email,
     phone,
     emailVerified,
   }: {
     firebaseUid: string;
-    name: string;
     email?: string;
     phone?: string;
     emailVerified?: boolean;
@@ -32,7 +30,6 @@ export class UsersService {
     const defaultRole = await this.rbacService.getRole(Role.USER);
     const user = this.userRepo.create({
       firebaseUid,
-      name,
       email: email ?? undefined,
       phone: phone ?? undefined,
       roles: defaultRole ? [defaultRole] : [],

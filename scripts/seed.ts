@@ -50,7 +50,6 @@ async function seed() {
 
     superUser = userRepo.create({
       firebaseUid: superUserFirebaseUid,
-      name: 'Super Admin',
       email: 'superadmin@example.com',
       roles: adminRole ? [adminRole] : [],
     });
