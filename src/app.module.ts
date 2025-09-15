@@ -5,7 +5,10 @@ import databaseConfig from 'config/database.config';
 import { LoggerModule } from 'nestjs-pino';
 
 import { AuthModule } from './auth/auth.module';
+import { RedisService } from './common/redis.service';
 import { FirebaseModule } from './firebase/firebase.module';
+import { RealtimeModule } from './notifications/realtime.module';
+import { QueuesModule } from './queues/queues.module';
 import { RbacModule } from './rbac/rbac.module';
 import { UsersModule } from './users/users.module';
 import { AppController } from './app.controller';
@@ -17,6 +20,8 @@ import { AppService } from './app.service';
     AuthModule,
     RbacModule,
     UsersModule,
+    QueuesModule,
+    RealtimeModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -52,6 +57,6 @@ import { AppService } from './app.service';
     }),
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, RedisService],
 })
 export class AppModule {}

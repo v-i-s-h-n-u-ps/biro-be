@@ -57,4 +57,12 @@ export class UserDeviceService {
       where: { user: { id: user.id } },
     });
   }
+
+  async getDevicesByUserIds(userIds: string[]): Promise<UserDevice[]> {
+    return this.userDeviceRepo
+      .createQueryBuilder('device')
+      .leftJoinAndSelect('device.user', 'user')
+      .where('user.id IN (:...userIds)', { userIds })
+      .getMany();
+  }
 }

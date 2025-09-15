@@ -1,11 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import * as admin from 'firebase-admin';
-import { MessagingPayload } from 'firebase-admin/messaging';
-import { Repository } from 'typeorm';
-
-// import { Device } from 'src/notifications/entities/device.entity';
 
 @Injectable()
 export class FirebaseService {
@@ -13,8 +7,6 @@ export class FirebaseService {
 
   constructor(
     @Inject('FIREBASE_ADMIN') private readonly firebaseAdmin: typeof admin,
-    // @InjectRepository(Device)
-    // private readonly deviceRepo: Repository<Device>,
   ) {}
 
   /**
@@ -27,27 +19,6 @@ export class FirebaseService {
   async getUser(uid: string): Promise<admin.auth.UserRecord> {
     return this.firebaseAdmin.auth().getUser(uid);
   }
-
-  // /**
-  //  * Register a device for push notifications
-  //  */
-  // async registerDevice({ userId, deviceToken, platform }: DeviceRegistration) {
-  //   const existing = await this.deviceRepo.findOne({
-  //     where: { userId, deviceToken },
-  //   });
-
-  //   if (!existing) {
-  //     const device = this.deviceRepo.create({ userId, deviceToken, platform });
-  //     await this.deviceRepo.save(device);
-  //   }
-  // }
-
-  // /**
-  //  * Deregister a device (logout, uninstall, etc.)
-  //  */
-  // async deregisterDevice(deviceToken: string) {
-  //   await this.deviceRepo.delete({ deviceToken });
-  // }
 
   /**
    * Send a notification to a single device
@@ -72,7 +43,7 @@ export class FirebaseService {
    */
   async sendNotificationToDevices(
     deviceTokens: string[],
-    payload: MessagingPayload,
+    payload: admin.messaging.MessagingPayload,
   ) {
     if (deviceTokens.length === 0) return;
 
