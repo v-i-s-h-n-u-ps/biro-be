@@ -28,6 +28,7 @@ export enum Permission {
 
 export enum ResourceRole {
   RIDE_OWNER = 'ride_owner',
+  RIDE_MODERATOR = 'ride_moderator',
   RIDE_MEMBER = 'ride_member',
   STORY_OWNER = 'story_owner',
   CHAT_OWNER = 'chat_owner',

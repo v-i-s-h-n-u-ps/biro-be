@@ -13,14 +13,24 @@ import { ChatProcessor } from './processors/chat.processor';
 import { RealtimeService } from './services/realtime.service';
 import { WebsocketService } from './services/websocket.service';
 
+const defaultJobOptions = {
+  attempts: 3,
+  backoff: {
+    type: 'exponential',
+    delay: 5000,
+  },
+  removeOnComplete: true,
+  removeOnFail: 5,
+};
+
 @Module({
   imports: [
     FirebaseModule,
     QueuesModule,
     UsersModule,
     BullModule.registerQueue(
-      { name: QueueName.NOTIFICATIONS },
-      { name: QueueName.CHAT },
+      { name: QueueName.NOTIFICATIONS, defaultJobOptions },
+      { name: QueueName.CHAT, defaultJobOptions },
     ),
   ],
   providers: [

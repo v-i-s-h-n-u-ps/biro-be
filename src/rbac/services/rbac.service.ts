@@ -42,7 +42,7 @@ export class RbacService {
   }
 
   async getResourceRoles(id: ResourceRole) {
-    return this.resourceRoleRepo.find({
+    return this.resourceRoleRepo.findOne({
       where: { id },
       relations: ['permissions'],
     });

@@ -13,6 +13,7 @@ import { QueueClientFactory } from './queues/providers/queue-client-factory.prov
 import { QueuesModule } from './queues/queues.module';
 import { RbacModule } from './rbac/rbac.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { RideModule } from './rides/rides.module';
 import { UsersModule } from './users/users.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -26,6 +27,7 @@ import { AppService } from './app.service';
     QueuesModule,
     RealtimeModule,
     ConnectionsModule,
+    RideModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

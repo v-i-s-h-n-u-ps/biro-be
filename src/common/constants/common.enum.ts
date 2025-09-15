@@ -38,9 +38,14 @@ export enum FollowStatus {
   ACCEPTED = 'accepted',
 }
 
-export enum RideStatus {
-  REQUESTED = 'requested',
+export enum ParticipantStatus {
+  PENDING = 'pending',
   ACCEPTED = 'accepted',
+  DECLINED = 'declined',
+}
+
+export enum RideStatus {
+  UPCOMING = 'upcoming',
   IN_PROGRESS = 'in_progress',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
