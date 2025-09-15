@@ -7,8 +7,8 @@ import { DeregisterDeviceDto } from '../dtos/deregister-device.dto';
 import { RegisterDeviceDto } from '../dtos/register-device.dto';
 import { UserDeviceService } from '../services/user-devices.service';
 
-@Controller({ path: 'users/devices', version: '1' })
 @UseGuards(FirebaseAuthGuard)
+@Controller({ path: 'users/devices', version: '1' })
 export class UserDeviceController {
   constructor(private readonly userDeviceService: UserDeviceService) {}
 

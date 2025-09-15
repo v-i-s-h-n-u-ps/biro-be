@@ -11,12 +11,15 @@ import { RealtimeService } from 'src/realtime/services/realtime.service';
 import { User } from 'src/users/entities/users.entity';
 
 import { Follow } from '../entities/follows.entity';
+import { UserBlock } from '../entities/user-blocks.entity';
 
 @Injectable()
-export class FollowsService {
+export class ConnectionsService {
   constructor(
     @InjectRepository(Follow)
     private readonly followRepo: Repository<Follow>,
+    @InjectRepository(UserBlock)
+    private readonly blockRepo: Repository<UserBlock>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly realtimeService: RealtimeService,
@@ -67,7 +70,10 @@ export class FollowsService {
       throw new BadRequestException("You can't follow yourself");
     }
 
-    const follower = await this.userRepo.findOne({ where: { id: followerId } });
+    const follower = await this.userRepo.findOne({
+      where: { id: followerId },
+      relations: ['profile'],
+    });
     const following = await this.userRepo.findOne({
       where: { id: followingId },
       relations: ['profile'],
@@ -137,6 +143,12 @@ export class FollowsService {
     });
     if (!follow) throw new NotFoundException('Request not found');
 
+    if (follow.following.id !== userId) {
+      throw new BadRequestException(
+        'You are not allowed to accept this request',
+      );
+    }
+
     await this.followRepo.manager.transaction(async (manager) => {
       follow.status = FollowStatus.ACCEPTED;
       await manager.save(follow);
@@ -161,21 +173,123 @@ export class FollowsService {
     return follow;
   }
 
-  async removeFollow(followId: string) {
-    const follow = await this.followRepo.findOne({ where: { id: followId } });
-    if (!follow) throw new NotFoundException('Not found');
+  /** Reject request */
+  async rejectRequest(userId: string, followId: string) {
+    const follow = await this.followRepo.findOne({
+      where: {
+        id: followId,
+        following: { id: userId },
+        status: FollowStatus.PENDING,
+      },
+      relations: ['follower'],
+    });
+    if (!follow) throw new NotFoundException('Request not found');
+
+    if (follow.following.id !== userId) {
+      throw new BadRequestException(
+        'You are not allowed to reject this request',
+      );
+    }
+
+    await this.followRepo.remove(follow);
+
+    return true;
+  }
+
+  /** Unfollow */
+  async unfollowUser(followerId: string, followingId: string) {
+    const follow = await this.followRepo.findOne({
+      where: {
+        follower: { id: followerId },
+        following: { id: followingId },
+        status: FollowStatus.ACCEPTED,
+      },
+      relations: ['follower', 'following'],
+    });
+
+    if (!follow) throw new NotFoundException('Not following');
 
     await this.followRepo.manager.transaction(async (manager) => {
       await manager.remove(follow);
-      if (follow.status === FollowStatus.ACCEPTED) {
-        await this.decreaseFollowCounts(
-          manager,
-          follow.follower.id,
-          follow.following.id,
-        );
-      }
+
+      await this.decreaseFollowCounts(manager, followerId, followingId);
     });
 
     return true;
+  }
+
+  async blockUser(blockerId: string, blockedId: string) {
+    if (blockerId === blockedId)
+      throw new BadRequestException("You can't block yourself");
+
+    const blocker = await this.userRepo.findOne({ where: { id: blockerId } });
+    const blocked = await this.userRepo.findOne({ where: { id: blockedId } });
+    if (!blocker || !blocked) throw new NotFoundException('User not found');
+
+    const existing = await this.blockRepo.findOne({
+      where: { blocker: { id: blockerId }, blocked: { id: blockedId } },
+    });
+    if (existing) throw new BadRequestException('User already blocked');
+
+    await this.followRepo.manager.transaction(async (manager) => {
+      // Remove any existing follow relationships
+      const followsToRemove = await manager.find(Follow, {
+        where: [
+          {
+            follower: { id: blockerId },
+            following: { id: blockedId },
+            status: FollowStatus.ACCEPTED,
+          },
+          {
+            follower: { id: blockedId },
+            following: { id: blockerId },
+            status: FollowStatus.ACCEPTED,
+          },
+        ],
+      });
+
+      if (followsToRemove.length > 0) {
+        // Collect follower and following IDs
+        const followerIds = followsToRemove.map((f) => f.follower.id);
+        const followingIds = followsToRemove.map((f) => f.following.id);
+
+        // Bulk decrement followersCount
+        await manager
+          .createQueryBuilder()
+          .update(User)
+          .set({
+            'profile.followersCount': () => '"profile"."followersCount" - 1',
+          })
+          .where('id IN (:...ids)', { ids: followingIds })
+          .execute();
+
+        // Bulk decrement followingCount
+        await manager
+          .createQueryBuilder()
+          .update(User)
+          .set({
+            'profile.followingCount': () => '"profile"."followingCount" - 1',
+          })
+          .where('id IN (:...ids)', { ids: followerIds })
+          .execute();
+
+        // Remove follow rows
+        await manager.remove(followsToRemove);
+      }
+
+      // Add block
+      const block = manager.create(UserBlock, { blocker, blocked });
+      await manager.save(block);
+    });
+
+    return true;
+  }
+
+  async unblockUser(blockerId: string, blockedId: string) {
+    const block = await this.blockRepo.findOne({
+      where: { blocker: { id: blockerId }, blocked: { id: blockedId } },
+    });
+    if (!block) throw new NotFoundException('Not found');
+    return this.blockRepo.remove(block);
   }
 }
