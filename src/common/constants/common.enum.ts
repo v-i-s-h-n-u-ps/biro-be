@@ -10,21 +10,21 @@ export enum QueueName {
 }
 
 export enum RealtimeType {
-  CHAT_MESSAGE = 'CHAT_MESSAGE',
-  RIDE_INVITE = 'RIDE_INVITE',
-  RIDE_ACCEPTED = 'RIDE_ACCEPTED',
-  RIDE_REMINDER = 'RIDE_REMINDER',
-  FOLLOW_REQUEST = 'FOLLOW_REQUEST',
-  FOLLOWED = 'FOLLOWED',
-  COMMENT = 'COMMENT',
-  LIKE = 'LIKE',
-  MENTION = 'MENTION',
-  GENERAL = 'GENERAL',
+  CHAT_MESSAGE = 'chat_message',
+  RIDE_INVITE = 'ride_invite',
+  RIDE_ACCEPTED = 'ride_accepted',
+  RIDE_REMINDER = 'ride_reminder',
+  FOLLOW_REQUEST = 'follow_request',
+  FOLLOWED = 'followed',
+  COMMENT = 'comment',
+  LIKE = 'like',
+  MENTION = 'mention',
+  GENERAL = 'general',
 }
 
 export enum NotificationChannel {
-  WEBSOCKET = 'WEBSOCKET',
-  PUSH = 'PUSH',
+  WEBSOCKET = 'websocket',
+  PUSH = 'push',
 }
 
 export enum UserStatus {
@@ -33,9 +33,9 @@ export enum UserStatus {
   BANNED = 'banned',
 }
 
-export enum FriendRequestStatus {
+export enum FollowStatus {
+  PENDING = 'pending',
   ACCEPTED = 'accepted',
-  REJECTED = 'rejected',
 }
 
 export enum RideStatus {
