@@ -18,6 +18,6 @@ export class UserBlock {
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   blocked: User;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamp with time zone', name: 'created_at' })
   createdAt: Date;
 }

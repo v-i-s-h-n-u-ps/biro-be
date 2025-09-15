@@ -32,6 +32,6 @@ export class Follow {
   })
   status: FollowStatus;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn({ type: 'timestamp with time zone', name: 'created_at' })
   createdAt: Date;
 }
