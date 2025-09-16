@@ -50,3 +50,9 @@ export enum RideStatus {
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
 }
+
+export enum DeliveryStrategy {
+  WS_ONLY = 'ws_only',
+  PUSH_ONLY = 'push_only',
+  WS_THEN_PUSH = 'ws_then_push',
+}

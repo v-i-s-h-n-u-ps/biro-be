@@ -9,4 +9,8 @@ export class WebsocketService {
   emitToRoom(room: string, event: string, payload: unknown) {
     this.websocketGateway.broadcastToRoom(room, event, payload);
   }
+
+  async emitToUser(userId: string, event: string, payload: unknown) {
+    await this.websocketGateway.broadcastToUser(userId, event, payload);
+  }
 }

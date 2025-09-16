@@ -2,7 +2,8 @@ import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Injectable } from '@nestjs/common';
 import { type Job } from 'bull';
 
-import { QueueName } from 'src/common/constants/common.enum';
+import { DeliveryStrategy, QueueName } from 'src/common/constants/common.enum';
+import { PresenceService } from 'src/common/presence.service';
 import { FirebaseService } from 'src/firebase/services/firebase.service';
 import { UserDeviceService } from 'src/users/services/user-devices.service';
 
@@ -16,15 +17,16 @@ import { BaseRealtimeProcessor } from './base.processor';
 export class AppNotificationProcessor extends BaseRealtimeProcessor {
   constructor(
     wsService: WebsocketService,
+    presenceService: PresenceService,
     firebaseService: FirebaseService,
     userDeviceService: UserDeviceService,
   ) {
-    super(wsService, firebaseService, userDeviceService);
+    super(wsService, presenceService, firebaseService, userDeviceService);
   }
 
   @Process()
   async handle(job: Job<RealtimeJob>) {
-    await this.process(job);
+    await this.process(job, DeliveryStrategy.PUSH_ONLY);
   }
 
   @OnQueueFailed()

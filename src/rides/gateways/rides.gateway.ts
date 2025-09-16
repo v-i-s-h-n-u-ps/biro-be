@@ -3,39 +3,45 @@ import {
   MessageBody,
   SubscribeMessage,
   WebSocketGateway,
-  WebSocketServer,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Socket } from 'socket.io';
+
+import { WebsocketService } from 'src/realtime/services/websocket.service';
 
 import { RideLocationService } from '../services/ride-location.service';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class RideGateway {
-  @WebSocketServer()
-  server: Server;
+  constructor(
+    private readonly rideLocationService: RideLocationService,
+    private readonly wsService: WebsocketService, // inject central service
+  ) {}
 
-  constructor(private readonly rideLocationService: RideLocationService) {}
-
-  /** Join a ride room */
   @SubscribeMessage('JOIN_RIDE')
   async handleJoinRide(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { rideId: string; userId: string },
   ) {
-    client.join(`ride:${data.rideId}`);
+    await client.join(`ride:${data.rideId}`);
     const locations = await this.rideLocationService.getAllLocations(
       data.rideId,
     );
-    client.emit('CURRENT_LOCATIONS', locations);
+
+    // send only to this client
+    await this.wsService.emitToUser(
+      data.userId,
+      'CURRENT_LOCATIONS',
+      locations,
+    );
   }
 
-  /** Update participant location */
   @SubscribeMessage('UPDATE_LOCATION')
   async handleUpdateLocation(
     @MessageBody()
     data: {
       rideId: string;
       userId: string;
+      deviceId: string;
       lat: number;
       lng: number;
     },
@@ -44,9 +50,10 @@ export class RideGateway {
       ...data,
       updatedAt: Date.now(),
     });
+
+    this.wsService.emitToRoom(`ride:${data.rideId}`, 'LOCATION_UPDATE', data);
   }
 
-  /** Leave ride */
   @SubscribeMessage('LEAVE_RIDE')
   async handleLeaveRide(
     @MessageBody() data: { rideId: string; userId: string },
