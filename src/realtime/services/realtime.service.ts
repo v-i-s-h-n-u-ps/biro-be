@@ -25,6 +25,13 @@ export class RealtimeService {
   async sendAndForgetNotification(job: RealtimeJob, delayMs = 0) {
     const filteredUserIds = await this.filterMutedUsers(job.userIds, job.type);
     if (!filteredUserIds.length) return;
+    if (job.options.emitToRoom && job.options.emitToUser) {
+      if (filteredUserIds.length === 0) {
+        job.options.emitToUser = false;
+      } else {
+        job.options.emitToRoom = false;
+      }
+    }
     await this.notificationQueue.add(job, {
       attempts: 3,
       backoff: 5000,

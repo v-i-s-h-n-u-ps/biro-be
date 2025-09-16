@@ -40,18 +40,20 @@ export class RideService {
 
   private async sendNotification({
     userIds,
+    roomId,
     ...payload
   }: {
     userIds: string[];
+    roomId?: string;
   } & RealtimePayload) {
     await this.realtimeService.sendAndForgetNotification({
       userIds,
       type: RealtimeType.RIDE,
       namespace: WebSocketNamespace.RIDE,
-      websocketRoomIds: [],
+      websocketRoomIds: roomId ? [`ride:${roomId}`] : [],
       options: {
-        strategy: DeliveryStrategy.PUSH_ONLY,
-        emitToRoom: false,
+        strategy: DeliveryStrategy.WS_THEN_PUSH,
+        emitToRoom: !!roomId,
         emitToUser: true,
       },
       payload,
@@ -60,15 +62,10 @@ export class RideService {
 
   async createRide(owner: User, data: CreateRideDto) {
     const ride = this.rideRepo.create({
-      title: data.title,
-      owner,
-      isPublic: data.isPublic,
-      startDate: data.startDate,
-      endDate: data.endDate,
+      ...data,
       startPoint: latLngToPoint(data.startPoint),
       endPoint: latLngToPoint(data.endPoint),
       route: latLngsToLinestring(data.route ?? []),
-      status: data.status,
     });
     await this.rideRepo.save(ride);
 
@@ -123,6 +120,7 @@ export class RideService {
       await this.sendNotification({
         userIds: [ride.owner.id],
         icon: user.profile.avatarUrl,
+        roomId: ride.id,
         title: 'New Participant Joined',
         body: `${user.profile.name} has joined your ride "${ride.title}".`,
         data: { rideId: ride.id, participantId: participant.id },
