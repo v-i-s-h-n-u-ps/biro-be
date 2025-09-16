@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   OneToMany,
@@ -15,6 +16,9 @@ import { User } from 'src/users/entities/users.entity';
 import { RideParticipant } from './ride-participants.entity';
 
 @Entity('rides')
+@Index('rides_start_point_idx', ['startPoint'], { spatial: true }) // GIST index
+@Index('rides_end_point_idx', ['endPoint'], { spatial: true })
+@Index('rides_route_idx', ['route'], { spatial: true })
 export class Ride {
   @PrimaryGeneratedColumn('uuid')
   id: string;
