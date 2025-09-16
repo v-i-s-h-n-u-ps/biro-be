@@ -1,12 +1,28 @@
-import { RealtimeType } from 'src/common/constants/common.enum';
+import {
+  DeliveryStrategy,
+  RealtimeType,
+  WebSocketNamespace,
+} from 'src/common/constants/common.enum';
 
-export interface RealtimeJob {
-  userIds: string[];
+export interface RealtimePayload {
   title?: string;
   body?: string;
   icon?: string;
   clickAction?: string;
   data?: Record<string, unknown>;
-  type?: RealtimeType;
-  websocketRoomIds?: string[];
+}
+
+export interface RealtimeJob {
+  userIds: string[];
+  websocketRoomIds: string[];
+  type: RealtimeType;
+  namespace: WebSocketNamespace;
+  payload: RealtimePayload;
+  options: JobDefaults;
+}
+
+export interface JobDefaults {
+  strategy: DeliveryStrategy;
+  emitToRoom?: boolean;
+  emitToUser?: boolean;
 }

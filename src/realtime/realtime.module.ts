@@ -5,9 +5,11 @@ import { QueueName } from 'src/common/constants/common.enum';
 import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
 import { QueuesModule } from 'src/queues/queues.module';
+import { RideLocationService } from 'src/rides/services/ride-location.service';
 import { UsersModule } from 'src/users/users.module';
 
-import { WebsocketGateway } from './gateways/websocket.gateway';
+import { AppServerGateway } from './gateways/app-server.gateway';
+import { RideGateway } from './gateways/rides.gateway';
 import { AppNotificationProcessor } from './processors/app-notification.processor';
 import { RealtimeService } from './services/realtime.service';
 import { WebsocketService } from './services/websocket.service';
@@ -36,7 +38,9 @@ const defaultJobOptions = {
     PresenceService,
     RealtimeService,
     WebsocketService,
-    WebsocketGateway,
+    AppServerGateway,
+    RideGateway,
+    RideLocationService,
     AppNotificationProcessor,
   ],
   exports: [RealtimeService, WebsocketService],

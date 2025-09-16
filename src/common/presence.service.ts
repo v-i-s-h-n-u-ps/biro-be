@@ -29,6 +29,20 @@ export class PresenceService {
     return sockets;
   }
 
+  async getActiveSocketsForUsers(userIds: string[]): Promise<string[]> {
+    const pipeline = this.redis.client.multi();
+    userIds.forEach((userId) => {
+      pipeline.hvals(this.userKey(userId));
+    });
+    const results = await pipeline.exec();
+    const sockets = (results ?? []).flatMap(([err, res]) => {
+      if (err) return [];
+      if (Array.isArray(res)) return res.map(String);
+      return [];
+    });
+    return sockets;
+  }
+
   async getSocketForDevice(
     userId: string,
     deviceId: string,

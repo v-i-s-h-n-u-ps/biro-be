@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import { WebSocketNamespace } from 'src/common/constants/common.enum';
 import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
 import { WebsocketService } from 'src/realtime/services/websocket.service';
@@ -29,7 +30,12 @@ export class RideLocationService {
     await this.redisService.client.hset(key, field, JSON.stringify(location));
     await this.redisService.client.expire(key, this.TTL_SECONDS);
 
-    this.wsService.emitToRoom(`ride:${rideId}`, 'LOCATION_UPDATE', location);
+    this.wsService.emitToRoom(
+      WebSocketNamespace.RIDE,
+      `ride:${rideId}`,
+      'LOCATION_UPDATE',
+      location,
+    );
   }
 
   async getAllLocations(rideId: string): Promise<ParticipantLocation[]> {
@@ -49,10 +55,15 @@ export class RideLocationService {
         await this.redisService.client.hdel(key, ...userFields);
     }
 
-    this.wsService.emitToRoom(`ride:${rideId}`, 'PARTICIPANT_LEFT', {
-      userId,
-      deviceId,
-    });
+    this.wsService.emitToRoom(
+      WebSocketNamespace.RIDE,
+      `ride:${rideId}`,
+      'PARTICIPANT_LEFT',
+      {
+        userId,
+        deviceId,
+      },
+    );
   }
 
   async isUserOnline(userId: string) {
@@ -62,6 +73,11 @@ export class RideLocationService {
   async cleanupRide(rideId: string) {
     const key = this.getRedisKey(rideId);
     await this.redisService.client.del(key);
-    this.wsService.emitToRoom(`ride:${rideId}`, 'RIDE_ENDED', { rideId });
+    this.wsService.emitToRoom(
+      WebSocketNamespace.RIDE,
+      `ride:${rideId}`,
+      'RIDE_ENDED',
+      { rideId },
+    );
   }
 }

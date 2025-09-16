@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { type Queue } from 'bull';
 
 import { QueueName } from 'src/common/constants/common.enum';
+import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
 
 import { RealtimeJob } from '../interfaces/realtime-job.interface';
@@ -14,34 +15,21 @@ export class RealtimeService {
     private readonly notificationQueue: Queue<RealtimeJob>,
     @InjectQueue(QueueName.CHAT)
     private readonly chatQueue: Queue<RealtimeJob>,
+    private readonly presenceService: PresenceService,
     private readonly redisService: RedisService,
   ) {}
 
   /**
    * Enqueue a notification to be sent immediately
    */
-  async sendNotification(job: RealtimeJob) {
-    // You can filter users who muted this type before even enqueueing
+  async sendAndForgetNotification(job: RealtimeJob, delayMs = 0) {
     const filteredUserIds = await this.filterMutedUsers(job.userIds, job.type);
     if (!filteredUserIds.length) return;
-
-    await this.notificationQueue.add(
-      { ...job, userIds: filteredUserIds },
-      { attempts: 3, backoff: 5000 },
-    );
-  }
-
-  /**
-   * Schedule a notification for a later time
-   */
-  async scheduleNotification(job: RealtimeJob, delayMs: number) {
-    const filteredUserIds = await this.filterMutedUsers(job.userIds, job.type);
-    if (!filteredUserIds.length) return;
-
-    await this.notificationQueue.add(
-      { ...job, userIds: filteredUserIds },
-      { delay: delayMs },
-    );
+    await this.notificationQueue.add(job, {
+      attempts: 3,
+      backoff: 5000,
+      delay: delayMs,
+    });
   }
 
   /**

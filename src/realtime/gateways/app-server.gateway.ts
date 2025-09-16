@@ -8,7 +8,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Socket } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 
 import { WsFirebaseAuthGuard } from 'src/auth/guards/ws-firebase-auth.guard';
 import { PresenceService } from 'src/common/presence.service';
@@ -18,11 +18,11 @@ import { type PresenceSocket } from 'src/common/types/socket.types';
   cors: { origin: '*', methods: ['GET', 'POST'] },
 })
 @UseGuards(WsFirebaseAuthGuard)
-export class WebsocketGateway
+export class AppServerGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
-  server: PresenceSocket;
+  server: Server;
 
   constructor(private readonly presenceService: PresenceService) {}
 
@@ -33,7 +33,6 @@ export class WebsocketGateway
     return userId || null;
   }
 
-  // Handle raw socket connect
   async handleConnection(client: PresenceSocket) {
     const userId = this.extractUserId(client);
     if (!userId) return;
@@ -46,7 +45,6 @@ export class WebsocketGateway
     this.server.emit('USER_ONLINE', { userId });
   }
 
-  // Handle raw socket disconnect
   async handleDisconnect(client: PresenceSocket) {
     const userId = client.data?.userId;
     const deviceId = client.data?.deviceId;
@@ -57,7 +55,6 @@ export class WebsocketGateway
     }
   }
 
-  /** User joins presence tracking */
   @SubscribeMessage('PRESENCE_JOIN')
   async handlePresenceJoin(
     @ConnectedSocket() client: PresenceSocket,
@@ -77,18 +74,5 @@ export class WebsocketGateway
     this.server
       .to(`user:${data.userId}`)
       .emit('USER_ONLINE', { userId: data.userId });
-  }
-
-  /** Broadcast message to room */
-  broadcastToRoom(roomId: string, event: string, payload: unknown) {
-    this.server.to(roomId).emit(event, payload);
-  }
-
-  /** Broadcast to a user (all devices) */
-  async broadcastToUser(userId: string, event: string, payload: unknown) {
-    const sockets = await this.presenceService.getActiveSockets(userId);
-    sockets.forEach((socketId) =>
-      this.server.to(socketId).emit(event, payload),
-    );
   }
 }

@@ -2,7 +2,7 @@ import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Injectable } from '@nestjs/common';
 import { type Job } from 'bull';
 
-import { DeliveryStrategy, QueueName } from 'src/common/constants/common.enum';
+import { QueueName } from 'src/common/constants/common.enum';
 import { PresenceService } from 'src/common/presence.service';
 import { FirebaseService } from 'src/firebase/services/firebase.service';
 import { UserDeviceService } from 'src/users/services/user-devices.service';
@@ -26,7 +26,7 @@ export class ChatProcessor extends BaseRealtimeProcessor {
 
   @Process()
   async handle(job: Job<RealtimeJob>) {
-    await this.process(job, DeliveryStrategy.WS_THEN_PUSH);
+    await this.process(job);
   }
 
   @OnQueueFailed()

@@ -30,39 +30,41 @@ export abstract class BaseRealtimeProcessor {
     }
   }
 
-  async process(
-    job: Job<RealtimeJob>,
-    strategy: DeliveryStrategy = DeliveryStrategy.WS_THEN_PUSH,
-  ) {
-    const {
-      userIds,
-      type,
-      title,
-      body,
-      data,
-      websocketRoomIds,
-      icon,
-      clickAction,
-    } = job.data;
+  async process(job: Job<RealtimeJob>) {
+    const { userIds, type, payload, websocketRoomIds, options, namespace } =
+      job.data;
+    const { data, ...notification } = payload;
+
+    const { strategy, emitToRoom, emitToUser } = options;
 
     try {
       switch (strategy) {
         case DeliveryStrategy.WS_ONLY: {
-          if (websocketRoomIds?.length) {
+          if (websocketRoomIds.length && emitToRoom) {
             websocketRoomIds.forEach((roomId) => {
-              this.wsService.emitToRoom(roomId, type ?? 'GENERAL', data ?? {});
+              this.wsService.emitToRoom(
+                namespace,
+                roomId,
+                type ?? 'GENERAL',
+                data ?? {},
+              );
             });
+          }
+          if (emitToUser && !userIds.length) {
+            for (const uid of userIds) {
+              await this.wsService.emitToUser(
+                namespace,
+                uid,
+                type ?? 'GENERAL',
+                data ?? {},
+              );
+            }
           }
           break;
         }
         case DeliveryStrategy.PUSH_ONLY: {
           await this.sendPush(userIds, {
-            notification: {
-              title,
-              body,
-              icon,
-              clickAction,
-            },
+            notification,
             ...data,
           });
           break;
@@ -70,26 +72,38 @@ export abstract class BaseRealtimeProcessor {
         case DeliveryStrategy.WS_THEN_PUSH: {
           const offlineUserIds: string[] = [];
 
-          // Loop over each user
-          for (const uid of userIds) {
-            const sockets = await this.presenceService.getActiveSockets(uid);
-
-            if (sockets.length) {
-              // Online → emit to all connected devices
-              await this.wsService.emitToUser(
-                uid,
+          if (websocketRoomIds.length && emitToRoom) {
+            websocketRoomIds.forEach((roomId) => {
+              this.wsService.emitToRoom(
+                namespace,
+                roomId,
                 type ?? 'GENERAL',
                 data ?? {},
               );
-            } else {
-              // Offline → fallback to push
-              offlineUserIds.push(uid);
+            });
+          }
+          if (emitToUser) {
+            for (const uid of userIds) {
+              const sockets = await this.presenceService.getActiveSockets(uid);
+
+              if (sockets.length) {
+                // Online → emit to all connected devices
+                await this.wsService.emitToUser(
+                  namespace,
+                  uid,
+                  type ?? 'GENERAL',
+                  data ?? {},
+                );
+              } else {
+                // Offline → fallback to push
+                offlineUserIds.push(uid);
+              }
             }
           }
 
           if (offlineUserIds.length) {
             await this.sendPush(offlineUserIds, {
-              notification: { title, body, icon, clickAction },
+              notification,
               ...data,
             });
           }

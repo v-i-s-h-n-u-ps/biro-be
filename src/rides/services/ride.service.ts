@@ -7,11 +7,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import {
+  DeliveryStrategy,
   ParticipantStatus,
+  RealtimeType,
   RideStatus,
+  WebSocketNamespace,
 } from 'src/common/constants/common.enum';
 import { ResourceRole } from 'src/common/constants/rbac.enum';
 import { RbacService } from 'src/rbac/services/rbac.service';
+import { RealtimePayload } from 'src/realtime/interfaces/realtime-job.interface';
 import { RealtimeService } from 'src/realtime/services/realtime.service';
 import { User } from 'src/users/entities/users.entity';
 
@@ -33,6 +37,26 @@ export class RideService {
     private readonly rideLocationService: RideLocationService,
     private readonly realtimeService: RealtimeService,
   ) {}
+
+  private async sendNotification({
+    userIds,
+    ...payload
+  }: {
+    userIds: string[];
+  } & RealtimePayload) {
+    await this.realtimeService.sendAndForgetNotification({
+      userIds,
+      type: RealtimeType.RIDE,
+      namespace: WebSocketNamespace.RIDE,
+      websocketRoomIds: [],
+      options: {
+        strategy: DeliveryStrategy.PUSH_ONLY,
+        emitToRoom: false,
+        emitToUser: true,
+      },
+      payload,
+    });
+  }
 
   async createRide(owner: User, data: CreateRideDto) {
     const ride = this.rideRepo.create({
@@ -96,15 +120,17 @@ export class RideService {
     await this.participantRepo.save(participant);
 
     if (status === ParticipantStatus.ACCEPTED) {
-      await this.realtimeService.sendNotification({
+      await this.sendNotification({
         userIds: [ride.owner.id],
+        icon: user.profile.avatarUrl,
         title: 'New Participant Joined',
         body: `${user.profile.name} has joined your ride "${ride.title}".`,
         data: { rideId: ride.id, participantId: participant.id },
       });
     } else {
-      await this.realtimeService.sendNotification({
+      await this.sendNotification({
         userIds: [ride.owner.id],
+        icon: user.profile.avatarUrl,
         title: 'New Participant Request',
         body: `${user.profile.name} has requested to join your ride "${ride.title}".`,
         data: { rideId: ride.id, participantId: participant.id },
@@ -124,8 +150,9 @@ export class RideService {
     participant.status = ParticipantStatus.ACCEPTED;
     await this.participantRepo.save(participant);
 
-    await this.realtimeService.sendNotification({
+    await this.sendNotification({
       userIds: [participant.user.id],
+      icon: participant.user.profile.avatarUrl,
       title: 'Ride Participation Accepted',
       body: `Your request to join the ride "${participant.ride.title}" has been accepted.`,
       data: { rideId: participant.ride.id, participantId: participant.id },

@@ -9,17 +9,17 @@ export enum QueueName {
   CHAT = 'chat',
 }
 
+export enum WebSocketNamespace {
+  NOTIFICATIONS = 'notifications',
+  CHAT = 'chat',
+  RIDE = 'ride',
+}
+
 export enum RealtimeType {
-  CHAT_MESSAGE = 'chat_message',
-  RIDE_INVITE = 'ride_invite',
-  RIDE_ACCEPTED = 'ride_accepted',
-  RIDE_REMINDER = 'ride_reminder',
-  FOLLOW_REQUEST = 'follow_request',
-  FOLLOWED = 'followed',
-  COMMENT = 'comment',
-  LIKE = 'like',
-  MENTION = 'mention',
-  GENERAL = 'general',
+  CHAT = 'chat',
+  RIDE = 'ride',
+  SOCIAL = 'social',
+  APP = 'app',
 }
 
 export enum NotificationChannel {

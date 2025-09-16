@@ -8,11 +8,15 @@ import {
 import { Socket } from 'socket.io';
 
 import { WsFirebaseAuthGuard } from 'src/auth/guards/ws-firebase-auth.guard';
+import { WebSocketNamespace } from 'src/common/constants/common.enum';
 import { WebsocketService } from 'src/realtime/services/websocket.service';
 
-import { RideLocationService } from '../services/ride-location.service';
+import { RideLocationService } from '../../rides/services/ride-location.service';
 
-@WebSocketGateway({ cors: { origin: '*' } })
+@WebSocketGateway({
+  cors: { origin: '*' },
+  namespace: WebSocketNamespace.RIDE,
+})
 @UseGuards(WsFirebaseAuthGuard)
 export class RideGateway {
   constructor(
@@ -32,6 +36,7 @@ export class RideGateway {
 
     // send only to this client
     await this.wsService.emitToUser(
+      WebSocketNamespace.RIDE,
       data.userId,
       'CURRENT_LOCATIONS',
       locations,
@@ -54,7 +59,12 @@ export class RideGateway {
       updatedAt: Date.now(),
     });
 
-    this.wsService.emitToRoom(`ride:${data.rideId}`, 'LOCATION_UPDATE', data);
+    this.wsService.emitToRoom(
+      WebSocketNamespace.RIDE,
+      `ride:${data.rideId}`,
+      'LOCATION_UPDATE',
+      data,
+    );
   }
 
   @SubscribeMessage('LEAVE_RIDE')

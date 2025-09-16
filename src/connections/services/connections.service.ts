@@ -6,7 +6,13 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 
-import { FollowStatus, RealtimeType } from 'src/common/constants/common.enum';
+import {
+  DeliveryStrategy,
+  FollowStatus,
+  RealtimeType,
+  WebSocketNamespace,
+} from 'src/common/constants/common.enum';
+import { RealtimePayload } from 'src/realtime/interfaces/realtime-job.interface';
 import { RealtimeService } from 'src/realtime/services/realtime.service';
 import { User } from 'src/users/entities/users.entity';
 
@@ -64,6 +70,26 @@ export class ConnectionsService {
     );
   }
 
+  private async sendNotification({
+    userIds,
+    ...payload
+  }: {
+    userIds: string[];
+  } & RealtimePayload) {
+    await this.realtimeService.sendAndForgetNotification({
+      userIds,
+      type: RealtimeType.SOCIAL,
+      namespace: WebSocketNamespace.NOTIFICATIONS,
+      websocketRoomIds: [],
+      options: {
+        strategy: DeliveryStrategy.PUSH_ONLY,
+        emitToRoom: false,
+        emitToUser: true,
+      },
+      payload,
+    });
+  }
+
   /** Send follow request or auto-accept if public */
   async followUser(followerId: string, followingId: string) {
     if (followerId === followingId) {
@@ -101,27 +127,28 @@ export class ConnectionsService {
       follow = await manager.save(follow);
 
       if (isPrivate) {
-        // Notify the target user
-        await this.realtimeService.sendNotification({
-          userIds: [followingId],
-          type: RealtimeType.FOLLOW_REQUEST,
-          body: `${follower.profile.name} requested to follow you`,
+        await this.sendNotification({
+          userIds: [followerId],
+          title: 'Follow Request Sent',
+          body: `Your follow request to ${following.profile.name} is pending`,
+          icon: follower.profile.avatarUrl,
           data: { followerId },
         });
       } else {
         // Update counts
         await this.increaseFollowCounts(manager, followerId, followingId);
 
-        // Notify the target user
-        await this.realtimeService.sendNotification({
-          userIds: [followingId],
-          type: RealtimeType.FOLLOWED,
-          body: `${follower.profile.name} started following you`,
-          data: { followerId },
-        });
-        await this.realtimeService.sendNotification({
+        await this.sendNotification({
           userIds: [followerId],
-          type: RealtimeType.FOLLOWED,
+          title: 'Followed',
+          icon: following.profile.avatarUrl,
+          body: `You started following ${following.profile.name}`,
+          data: { followingId },
+        });
+        await this.sendNotification({
+          userIds: [followerId],
+          title: 'Followed',
+          icon: following.profile.avatarUrl,
           body: `You started following ${following.profile.name}`,
           data: { followingId },
         });
@@ -156,16 +183,17 @@ export class ConnectionsService {
       await this.increaseFollowCounts(manager, follow.follower.id, userId);
     });
 
-    // Notify the requester
-    await this.realtimeService.sendNotification({
+    await this.sendNotification({
       userIds: [follow.follower.id],
-      type: RealtimeType.FOLLOWED,
+      title: 'Follow Request Accepted',
+      icon: follow.following.profile.avatarUrl,
       body: `${follow.following.profile.name} accepted your follow request`,
       data: { followingId: userId },
     });
-    await this.realtimeService.sendNotification({
+    await this.sendNotification({
       userIds: [userId],
-      type: RealtimeType.FOLLOWED,
+      title: 'You Followed',
+      icon: follow.follower.profile.avatarUrl,
       body: `You started following ${follow.follower.profile.name}`,
       data: { followerId: follow.follower.id },
     });
