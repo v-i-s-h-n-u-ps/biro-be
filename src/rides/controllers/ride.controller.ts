@@ -27,7 +27,7 @@ import { RideService } from '../services/ride.service';
 import { RideSearchService } from '../services/ride-search.service';
 
 @UseGuards(FirebaseAuthGuard, ResourceRolesGuard)
-@Controller('rides')
+@Controller({ path: 'rides', version: '1' })
 export class RideController {
   constructor(
     private readonly rideService: RideService,

@@ -90,6 +90,13 @@ export class ConnectionsService {
     });
   }
 
+  private getUserData(user: User) {
+    return {
+      ...user,
+      ...user.profile,
+    };
+  }
+
   /** Send follow request or auto-accept if public */
   async followUser(followerId: string, followingId: string) {
     if (followerId === followingId) {
@@ -319,5 +326,41 @@ export class ConnectionsService {
     });
     if (!block) throw new NotFoundException('Not found');
     return this.blockRepo.remove(block);
+  }
+
+  async getBlockedUsers(userId: string): Promise<User[]> {
+    const blocks = await this.blockRepo.find({
+      where: { blocker: { id: userId } },
+      relations: ['blocked', 'blocked.profile'],
+      order: { createdAt: 'DESC' },
+    });
+    return blocks.map((b) => this.getUserData(b.blocked));
+  }
+
+  async getFollowers(userId: string): Promise<User[]> {
+    const follows = await this.followRepo.find({
+      where: { following: { id: userId }, status: FollowStatus.ACCEPTED },
+      relations: ['follower', 'follower.profile'],
+      order: { createdAt: 'DESC' },
+    });
+    return follows.map((f) => this.getUserData(f.follower));
+  }
+
+  async getFollowing(userId: string): Promise<User[]> {
+    const follows = await this.followRepo.find({
+      where: { follower: { id: userId }, status: FollowStatus.ACCEPTED },
+      relations: ['following', 'following.profile'],
+      order: { createdAt: 'DESC' },
+    });
+    return follows.map((f) => this.getUserData(f.following));
+  }
+
+  async getFollowRequests(userId: string): Promise<User[]> {
+    const requests = await this.followRepo.find({
+      where: { following: { id: userId }, status: FollowStatus.PENDING },
+      relations: ['follower', 'follower.profile'],
+      order: { createdAt: 'DESC' },
+    });
+    return requests.map((f) => this.getUserData(f.follower));
   }
 }
