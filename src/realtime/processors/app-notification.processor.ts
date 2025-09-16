@@ -32,7 +32,7 @@ export class AppNotificationProcessor extends BaseRealtimeProcessor {
   @OnQueueFailed()
   onFailed(job: Job<RealtimeJob>, error: Error) {
     this.logger.error(
-      `AppNotification job failed (id: ${job.id}, type: ${job.data.type}): ${error.message}`,
+      `AppNotification job failed (id: ${job.id}, event: ${job.data.event}): ${error.message}`,
       error.stack,
     );
   }

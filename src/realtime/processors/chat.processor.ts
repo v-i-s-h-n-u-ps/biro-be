@@ -32,7 +32,7 @@ export class ChatProcessor extends BaseRealtimeProcessor {
   @OnQueueFailed()
   onFailed(job: Job<RealtimeJob>, error: Error) {
     this.logger.error(
-      `Chat job failed (id: ${job.id}, type: ${job.data.type}): ${error.message}`,
+      `Chat job failed (id: ${job.id}, event: ${job.data.event}): ${error.message}`,
       error.stack,
     );
   }
