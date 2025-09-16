@@ -1,0 +1,22 @@
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import * as admin from 'firebase-admin';
+
+import { PresenceSocket } from 'src/common/types/socket.types';
+
+@Injectable()
+export class WsFirebaseAuthGuard implements CanActivate {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const client = context.switchToWs().getClient<PresenceSocket>(); // Socket
+    const token = client.handshake.auth?.token;
+    if (!token) return false;
+
+    try {
+      const decoded = await admin.auth().verifyIdToken(token);
+      client.data.userId = decoded.uid; // attach verified uid
+      return true;
+    } catch (err) {
+      console.error('Firebase auth error:', err);
+      return false;
+    }
+  }
+}

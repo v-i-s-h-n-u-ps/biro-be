@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
 import { RbacModule } from 'src/rbac/rbac.module';
 import { RealtimeModule } from 'src/realtime/realtime.module';
@@ -23,6 +24,7 @@ import { RideSearchService } from './services/ride-search.service';
   ],
   providers: [
     RedisService,
+    PresenceService,
     RideLocationService,
     RideService,
     RideGateway,

@@ -5,11 +5,12 @@ import { UsersModule } from 'src/users/users.module';
 
 import { AuthController } from './controllers/auth.controller';
 import { FirebaseAuthGuard } from './guards/firebase-auth.guard';
+import { WsFirebaseAuthGuard } from './guards/ws-firebase-auth.guard';
 import { AuthService } from './services/auth.service';
 
 @Module({
   imports: [UsersModule, RbacModule],
-  providers: [AuthService, FirebaseAuthGuard],
+  providers: [AuthService, FirebaseAuthGuard, WsFirebaseAuthGuard],
   controllers: [AuthController],
   exports: [AuthService],
 })

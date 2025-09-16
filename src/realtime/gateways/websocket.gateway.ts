@@ -1,3 +1,4 @@
+import { UseGuards } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -7,19 +8,21 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Socket } from 'socket.io';
 
+import { WsFirebaseAuthGuard } from 'src/auth/guards/ws-firebase-auth.guard';
 import { PresenceService } from 'src/common/presence.service';
 import { type PresenceSocket } from 'src/common/types/socket.types';
 
 @WebSocketGateway({
   cors: { origin: '*', methods: ['GET', 'POST'] },
 })
+@UseGuards(WsFirebaseAuthGuard)
 export class WebsocketGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
-  server: Server;
+  server: PresenceSocket;
 
   constructor(private readonly presenceService: PresenceService) {}
 
@@ -64,7 +67,7 @@ export class WebsocketGateway
     client.data.userId = data.userId;
     client.data.deviceId = data.deviceId;
 
-    client.join(`user:${data.userId}`);
+    await client.join(`user:${data.userId}`);
     await this.presenceService.addConnection(
       data.userId,
       data.deviceId,

@@ -1,3 +1,4 @@
+import { UseGuards } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -6,11 +7,13 @@ import {
 } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 
+import { WsFirebaseAuthGuard } from 'src/auth/guards/ws-firebase-auth.guard';
 import { WebsocketService } from 'src/realtime/services/websocket.service';
 
 import { RideLocationService } from '../services/ride-location.service';
 
 @WebSocketGateway({ cors: { origin: '*' } })
+@UseGuards(WsFirebaseAuthGuard)
 export class RideGateway {
   constructor(
     private readonly rideLocationService: RideLocationService,

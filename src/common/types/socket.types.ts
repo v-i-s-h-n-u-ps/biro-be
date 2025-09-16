@@ -5,9 +5,17 @@ export interface PresenceSocketData {
   deviceId?: string;
 }
 
+// Define the handshake auth structure
+export interface PresenceSocketAuth {
+  token?: string;
+}
+
+// Extend Socket type
 export type PresenceSocket = Socket<
-  DefaultEventsMap,
-  DefaultEventsMap,
-  DefaultEventsMap,
-  PresenceSocketData
->;
+  DefaultEventsMap, // Events from server
+  DefaultEventsMap, // Events to client
+  DefaultEventsMap, // Reserved for ServerSideEvents
+  PresenceSocketData // socket.data
+> & {
+  handshake: Socket['handshake'] & { auth: PresenceSocketAuth };
+};
