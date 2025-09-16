@@ -9,10 +9,10 @@ import { Repository } from 'typeorm';
 import {
   DeliveryStrategy,
   ParticipantStatus,
-  RealtimeType,
   RideStatus,
   WebSocketNamespace,
 } from 'src/common/constants/common.enum';
+import { NotificationEvents } from 'src/common/constants/notification-events.enum';
 import { ResourceRole } from 'src/common/constants/rbac.enum';
 import { RbacService } from 'src/rbac/services/rbac.service';
 import { RealtimePayload } from 'src/realtime/interfaces/realtime-job.interface';
@@ -41,14 +41,16 @@ export class RideService {
   private async sendNotification({
     userIds,
     roomId,
+    event,
     ...payload
   }: {
     userIds: string[];
     roomId?: string;
+    event: NotificationEvents;
   } & RealtimePayload) {
     await this.realtimeService.sendAndForgetNotification({
       userIds,
-      type: RealtimeType.RIDE,
+      event,
       namespace: WebSocketNamespace.RIDE,
       websocketRoomIds: roomId ? [`ride:${roomId}`] : [],
       options: {
@@ -120,6 +122,7 @@ export class RideService {
       await this.sendNotification({
         userIds: [ride.owner.id],
         icon: user.profile.avatarUrl,
+        event: NotificationEvents.NOTIFICATION_RIDE_PARTICIPANT_JOINED,
         roomId: ride.id,
         title: 'New Participant Joined',
         body: `${user.profile.name} has joined your ride "${ride.title}".`,
@@ -129,6 +132,7 @@ export class RideService {
       await this.sendNotification({
         userIds: [ride.owner.id],
         icon: user.profile.avatarUrl,
+        event: NotificationEvents.NOTIFICATION_PARTICIPANT_REQUEST,
         title: 'New Participant Request',
         body: `${user.profile.name} has requested to join your ride "${ride.title}".`,
         data: { rideId: ride.id, participantId: participant.id },
@@ -151,6 +155,7 @@ export class RideService {
     await this.sendNotification({
       userIds: [participant.user.id],
       icon: participant.user.profile.avatarUrl,
+      event: NotificationEvents.NOTIFICATION_PARTICIPANT_ACCEPTED,
       title: 'Ride Participation Accepted',
       body: `Your request to join the ride "${participant.ride.title}" has been accepted.`,
       data: { rideId: participant.ride.id, participantId: participant.id },

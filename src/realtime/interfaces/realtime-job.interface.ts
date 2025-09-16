@@ -1,8 +1,8 @@
 import {
   DeliveryStrategy,
-  RealtimeType,
   WebSocketNamespace,
 } from 'src/common/constants/common.enum';
+import { NotificationEvents } from 'src/common/constants/notification-events.enum';
 
 export interface RealtimePayload {
   title?: string;
@@ -15,7 +15,7 @@ export interface RealtimePayload {
 export interface RealtimeJob {
   userIds: string[];
   websocketRoomIds: string[];
-  type: RealtimeType;
+  event: NotificationEvents;
   namespace: WebSocketNamespace;
   payload: RealtimePayload;
   options: JobDefaults;

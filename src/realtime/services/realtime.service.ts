@@ -23,7 +23,7 @@ export class RealtimeService {
    * Enqueue a notification to be sent immediately
    */
   async sendAndForgetNotification(job: RealtimeJob, delayMs = 0) {
-    const filteredUserIds = await this.filterMutedUsers(job.userIds, job.type);
+    const filteredUserIds = await this.filterMutedUsers(job.userIds, job.event);
     if (!filteredUserIds.length) return;
     if (job.options.emitToRoom && job.options.emitToUser) {
       if (filteredUserIds.length === 0) {

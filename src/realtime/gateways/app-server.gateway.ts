@@ -11,6 +11,10 @@ import {
 import { Server, Socket } from 'socket.io';
 
 import { WsFirebaseAuthGuard } from 'src/auth/guards/ws-firebase-auth.guard';
+import {
+  ClientEvents,
+  NotificationEvents,
+} from 'src/common/constants/notification-events.enum';
 import { PresenceService } from 'src/common/presence.service';
 import { type PresenceSocket } from 'src/common/types/socket.types';
 
@@ -42,7 +46,7 @@ export class AppServerGateway
       client.data.deviceId || 'unknown-device',
       client.id,
     );
-    this.server.emit('USER_ONLINE', { userId });
+    this.server.emit(NotificationEvents.NOTIFICATION_USER_ONLINE, { userId });
   }
 
   async handleDisconnect(client: PresenceSocket) {
@@ -51,11 +55,13 @@ export class AppServerGateway
 
     if (userId && deviceId) {
       await this.presenceService.removeConnection(userId, deviceId);
-      this.server.to(`user:${userId}`).emit('USER_OFFLINE', { userId });
+      this.server
+        .to(`user:${userId}`)
+        .emit(NotificationEvents.NOTIFICATION_USER_OFFLINE, { userId });
     }
   }
 
-  @SubscribeMessage('PRESENCE_JOIN')
+  @SubscribeMessage(ClientEvents.PRESENCE_JOIN)
   async handlePresenceJoin(
     @ConnectedSocket() client: PresenceSocket,
     @MessageBody() data: { userId: string; deviceId: string },
@@ -73,6 +79,8 @@ export class AppServerGateway
 
     this.server
       .to(`user:${data.userId}`)
-      .emit('USER_ONLINE', { userId: data.userId });
+      .emit(NotificationEvents.NOTIFICATION_USER_ONLINE, {
+        userId: data.userId,
+      });
   }
 }

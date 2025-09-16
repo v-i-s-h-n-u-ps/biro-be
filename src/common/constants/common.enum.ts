@@ -15,13 +15,6 @@ export enum WebSocketNamespace {
   RIDE = 'ride',
 }
 
-export enum RealtimeType {
-  CHAT = 'chat',
-  RIDE = 'ride',
-  SOCIAL = 'social',
-  APP = 'app',
-}
-
 export enum NotificationChannel {
   WEBSOCKET = 'websocket',
   PUSH = 'push',

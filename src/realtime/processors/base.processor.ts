@@ -31,7 +31,7 @@ export abstract class BaseRealtimeProcessor {
   }
 
   async process(job: Job<RealtimeJob>) {
-    const { userIds, type, payload, websocketRoomIds, options, namespace } =
+    const { userIds, event, payload, websocketRoomIds, options, namespace } =
       job.data;
     const { data, ...notification } = payload;
 
@@ -42,12 +42,7 @@ export abstract class BaseRealtimeProcessor {
         case DeliveryStrategy.WS_ONLY: {
           if (websocketRoomIds.length && emitToRoom) {
             websocketRoomIds.forEach((roomId) => {
-              this.wsService.emitToRoom(
-                namespace,
-                roomId,
-                type ?? 'GENERAL',
-                data ?? {},
-              );
+              this.wsService.emitToRoom(namespace, roomId, event, data ?? {});
             });
           }
           if (emitToUser && !userIds.length) {
@@ -55,7 +50,7 @@ export abstract class BaseRealtimeProcessor {
               await this.wsService.emitToUser(
                 namespace,
                 uid,
-                type ?? 'GENERAL',
+                event,
                 data ?? {},
               );
             }
@@ -74,12 +69,7 @@ export abstract class BaseRealtimeProcessor {
 
           if (websocketRoomIds.length && emitToRoom) {
             websocketRoomIds.forEach((roomId) => {
-              this.wsService.emitToRoom(
-                namespace,
-                roomId,
-                type ?? 'GENERAL',
-                data ?? {},
-              );
+              this.wsService.emitToRoom(namespace, roomId, event, data ?? {});
             });
           }
           if (emitToUser) {
@@ -91,7 +81,7 @@ export abstract class BaseRealtimeProcessor {
                 await this.wsService.emitToUser(
                   namespace,
                   uid,
-                  type ?? 'GENERAL',
+                  event,
                   data ?? {},
                 );
               } else {
@@ -115,7 +105,7 @@ export abstract class BaseRealtimeProcessor {
       }
     } catch (err) {
       this.logger.error(
-        `Failed to process notification: ${type}`,
+        `Failed to process notification: ${event}`,
         err instanceof Error ? err.stack : String(err),
       );
       throw err;
@@ -126,7 +116,7 @@ export abstract class BaseRealtimeProcessor {
   @OnQueueFailed()
   onFailed(job: Job<RealtimeJob>, error: Error) {
     this.logger.error(
-      `Notification job failed (id: ${job.id}, type: ${job.data.type}): ${error.message}`,
+      `Notification job failed (id: ${job.id}, event: ${job.data.event}): ${error.message}`,
       error.stack,
     );
   }

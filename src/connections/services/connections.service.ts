@@ -9,9 +9,9 @@ import { EntityManager, Repository } from 'typeorm';
 import {
   DeliveryStrategy,
   FollowStatus,
-  RealtimeType,
   WebSocketNamespace,
 } from 'src/common/constants/common.enum';
+import { NotificationEvents } from 'src/common/constants/notification-events.enum';
 import { RealtimePayload } from 'src/realtime/interfaces/realtime-job.interface';
 import { RealtimeService } from 'src/realtime/services/realtime.service';
 import { User } from 'src/users/entities/users.entity';
@@ -72,13 +72,15 @@ export class ConnectionsService {
 
   private async sendNotification({
     userIds,
+    event,
     ...payload
   }: {
     userIds: string[];
+    event: NotificationEvents;
   } & RealtimePayload) {
     await this.realtimeService.sendAndForgetNotification({
       userIds,
-      type: RealtimeType.SOCIAL,
+      event,
       namespace: WebSocketNamespace.NOTIFICATIONS,
       websocketRoomIds: [],
       options: {
@@ -136,6 +138,7 @@ export class ConnectionsService {
       if (isPrivate) {
         await this.sendNotification({
           userIds: [followerId],
+          event: NotificationEvents.NOTIFICATION_FOLLOW_REQUEST,
           title: 'Follow Request Sent',
           body: `Your follow request to ${following.profile.name} is pending`,
           icon: follower.profile.avatarUrl,
@@ -147,6 +150,7 @@ export class ConnectionsService {
 
         await this.sendNotification({
           userIds: [followerId],
+          event: NotificationEvents.NOTIFICATION_FOLLOW_NEW,
           title: 'Followed',
           icon: following.profile.avatarUrl,
           body: `You started following ${following.profile.name}`,
@@ -154,6 +158,7 @@ export class ConnectionsService {
         });
         await this.sendNotification({
           userIds: [followerId],
+          event: NotificationEvents.NOTIFICATION_FOLLOW_NEW,
           title: 'Followed',
           icon: following.profile.avatarUrl,
           body: `You started following ${following.profile.name}`,
@@ -193,6 +198,7 @@ export class ConnectionsService {
     await this.sendNotification({
       userIds: [follow.follower.id],
       title: 'Follow Request Accepted',
+      event: NotificationEvents.NOTIFICATION_FOLLOW_ACCEPTED,
       icon: follow.following.profile.avatarUrl,
       body: `${follow.following.profile.name} accepted your follow request`,
       data: { followingId: userId },
@@ -200,6 +206,7 @@ export class ConnectionsService {
     await this.sendNotification({
       userIds: [userId],
       title: 'You Followed',
+      event: NotificationEvents.NOTIFICATION_FOLLOW_NEW,
       icon: follow.follower.profile.avatarUrl,
       body: `You started following ${follow.follower.profile.name}`,
       data: { followerId: follow.follower.id },

@@ -9,6 +9,7 @@ import { RideLocationService } from 'src/rides/services/ride-location.service';
 import { UsersModule } from 'src/users/users.module';
 
 import { AppServerGateway } from './gateways/app-server.gateway';
+import { ChatGateway } from './gateways/chats.gateway';
 import { RideGateway } from './gateways/rides.gateway';
 import { AppNotificationProcessor } from './processors/app-notification.processor';
 import { RealtimeService } from './services/realtime.service';
@@ -39,6 +40,7 @@ const defaultJobOptions = {
     RealtimeService,
     WebsocketService,
     AppServerGateway,
+    ChatGateway,
     RideGateway,
     RideLocationService,
     AppNotificationProcessor,

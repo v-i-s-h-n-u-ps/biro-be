@@ -6,7 +6,7 @@ import { WebSocketNamespace } from 'src/common/constants/common.enum';
 
 @WebSocketGateway({
   cors: { origin: '*', methods: ['GET', 'POST'] },
-  name: WebSocketNamespace.NOTIFICATIONS,
+  namespace: WebSocketNamespace.NOTIFICATIONS,
 })
 @UseGuards(WsFirebaseAuthGuard)
 export class NotificationsGateway {
