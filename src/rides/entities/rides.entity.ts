@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -25,9 +26,10 @@ export class Ride {
   image: string;
 
   @ManyToOne(() => User, { eager: true })
+  @JoinColumn({ name: 'owner_id' })
   owner: User;
 
-  @Column({ type: 'boolean', default: true })
+  @Column({ type: 'boolean', default: true, name: 'is_public' })
   isPublic: boolean;
 
   @Column({ type: 'timestamp with time zone', name: 'start_date' })

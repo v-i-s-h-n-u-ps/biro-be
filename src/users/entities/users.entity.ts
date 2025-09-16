@@ -3,6 +3,7 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinColumn,
   JoinTable,
   ManyToMany,
   OneToOne,
@@ -47,6 +48,7 @@ export class User {
   roles: Roles[];
 
   @OneToOne(() => UserProfile, (profile) => profile.user, { cascade: true })
+  @JoinColumn({ name: 'profile_id' })
   profile: UserProfile;
 
   @CreateDateColumn({ type: 'timestamp with time zone', name: 'created_at' })

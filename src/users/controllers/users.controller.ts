@@ -12,6 +12,7 @@ import {
 import { plainToInstance } from 'class-transformer';
 
 import { FirebaseAuthGuard } from 'src/auth/guards/firebase-auth.guard';
+import { UserBasicDetailsDto } from 'src/common/dtos/user-basic-details.dto';
 import { UserResponseDto } from 'src/common/dtos/user-response.dto';
 import { type RequestWithUser } from 'src/common/types/request-with-user';
 import { Roles } from 'src/rbac/decorators/roles.decorator';
@@ -20,6 +21,7 @@ import { RolesGuard } from 'src/rbac/guards/roles.guard';
 import { UserProfileResponseDto } from '../dtos/responses/user-profile-response.dto';
 import { UpdateUserProfileDto } from '../dtos/update-user-profile.dto';
 import { UpdateUserRolesDto } from '../dtos/update-user-roles.dto';
+import { SuggestionService } from '../services/suggestion.service';
 import { UserProfileService } from '../services/user-profile.service';
 import { UsersService } from '../services/users.service';
 
@@ -28,6 +30,7 @@ import { UsersService } from '../services/users.service';
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
+    private readonly suggestionService: SuggestionService,
     private readonly userProfileService: UserProfileService,
   ) {}
 
@@ -72,5 +75,13 @@ export class UsersController {
   @Delete(':id')
   async remove(@Param('id') id: string): Promise<void> {
     return this.usersService.remove(id);
+  }
+
+  @Get('suggestions')
+  async getSuggestions(@Req() req: RequestWithUser) {
+    const suggestion = await this.suggestionService.getSuggestions(req.user.id);
+    return suggestion.map((user) =>
+      plainToInstance(UserBasicDetailsDto, user, { strategy: 'excludeAll' }),
+    );
   }
 }

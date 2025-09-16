@@ -19,9 +19,11 @@ export class RideParticipant {
   id: string;
 
   @ManyToOne(() => Ride, (ride) => ride.participants, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'ride_id' })
   ride: Ride;
 
   @ManyToOne(() => User, { eager: true })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
   @ManyToOne(() => ResourceRoles, { eager: true })
