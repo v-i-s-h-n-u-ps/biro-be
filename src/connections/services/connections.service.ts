@@ -157,12 +157,12 @@ export class ConnectionsService {
           data: { followingId },
         });
         await this.sendNotification({
-          userIds: [followerId],
+          userIds: [followingId],
           event: NotificationEvents.NOTIFICATION_FOLLOW_NEW,
-          title: 'Followed',
-          icon: following.profile.avatarUrl,
-          body: `You started following ${following.profile.name}`,
-          data: { followingId },
+          title: 'New Follower',
+          icon: follower.profile.avatarUrl,
+          body: `${follower.profile.name} started following you`,
+          data: { followerId },
         });
       }
 
