@@ -26,14 +26,20 @@ export abstract class BaseRealtimeProcessor {
     const devices = await this.userDeviceService.getDevicesByUserIds(userIds);
     const tokens = devices.map((d) => d.deviceToken).filter(Boolean);
     if (tokens.length) {
-      await this.firebaseService.sendNotificationToDevices(tokens, payload);
+      if (tokens.length === 1) {
+        await this.firebaseService.sendNotificationToDevice(tokens[0], payload);
+      } else {
+        await this.firebaseService.sendNotificationToDevices(tokens, payload);
+      }
     }
   }
 
   async process(job: Job<RealtimeJob>) {
     const { userIds, event, payload, websocketRoomIds, options, namespace } =
       job.data;
-    const { data, ...notification } = payload;
+    const { data = {}, wsData = {}, pushData = {}, ...notification } = payload;
+    const wsDataFinal = { ...data, ...wsData };
+    const pushFinal = { ...data, ...pushData, event };
 
     const { strategy, emitToRoom, emitToUser } = options;
 
@@ -42,16 +48,16 @@ export abstract class BaseRealtimeProcessor {
         case DeliveryStrategy.WS_ONLY: {
           if (websocketRoomIds.length && emitToRoom) {
             websocketRoomIds.forEach((roomId) => {
-              this.wsService.emitToRoom(namespace, roomId, event, data ?? {});
+              this.wsService.emitToRoom(namespace, roomId, event, wsDataFinal);
             });
           }
-          if (emitToUser && !userIds.length) {
+          if (emitToUser && userIds.length) {
             for (const uid of userIds) {
               await this.wsService.emitToUser(
                 namespace,
                 uid,
                 event,
-                data ?? {},
+                wsDataFinal,
               );
             }
           }
@@ -60,7 +66,7 @@ export abstract class BaseRealtimeProcessor {
         case DeliveryStrategy.PUSH_ONLY: {
           await this.sendPush(userIds, {
             notification,
-            ...data,
+            data: pushFinal,
           });
           break;
         }
@@ -69,7 +75,7 @@ export abstract class BaseRealtimeProcessor {
 
           if (websocketRoomIds.length && emitToRoom) {
             websocketRoomIds.forEach((roomId) => {
-              this.wsService.emitToRoom(namespace, roomId, event, data ?? {});
+              this.wsService.emitToRoom(namespace, roomId, event, wsDataFinal);
             });
           }
           if (emitToUser) {
@@ -82,7 +88,7 @@ export abstract class BaseRealtimeProcessor {
                   namespace,
                   uid,
                   event,
-                  data ?? {},
+                  wsDataFinal,
                 );
               } else {
                 // Offline → fallback to push
@@ -94,7 +100,7 @@ export abstract class BaseRealtimeProcessor {
           if (offlineUserIds.length) {
             await this.sendPush(offlineUserIds, {
               notification,
-              ...data,
+              data: pushFinal,
             });
           }
 

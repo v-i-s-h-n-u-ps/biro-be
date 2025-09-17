@@ -9,7 +9,11 @@ export interface RealtimePayload {
   body?: string;
   icon?: string;
   clickAction?: string;
-  data?: Record<string, unknown>;
+  data?: Record<string, string>;
+  wsData?: Record<string, unknown>;
+  pushData?: {
+    [key: string]: string;
+  };
 }
 
 export interface RealtimeJob {

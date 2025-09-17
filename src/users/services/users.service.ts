@@ -41,7 +41,8 @@ export class UsersService {
       count += 1;
       uniqueUsername = uniqueUsernameGenerator({
         ...config,
-        seed: uniqueUsername + count.toString(),
+        randomDigits: count,
+        seed: uniqueUsername,
       });
     }
 

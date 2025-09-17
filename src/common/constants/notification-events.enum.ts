@@ -1,6 +1,5 @@
 export enum NotificationEvents {
   NEW_NOTIFICATION = 'notification:new',
-  NOTIFICATION_READ = 'notification:read',
   NOTIFICATION_DELETED = 'notification:deleted',
 
   // connections
