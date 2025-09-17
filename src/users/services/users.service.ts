@@ -1,6 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import {
+  adjectives,
+  Config,
+  nouns,
+  uniqueUsernameGenerator,
+} from 'unique-username-generator';
 
 import { Role } from 'src/common/constants/rbac.enum';
 import { RbacService } from 'src/rbac/services/rbac.service';
@@ -15,6 +21,33 @@ export class UsersService {
     private readonly rbacService: RbacService,
   ) {}
 
+  private async generateUniqueUsername(email?: string): Promise<string> {
+    const config: Config = {
+      dictionaries: [adjectives, nouns],
+      style: 'lowerCase',
+      ensureUnique: true,
+    };
+
+    let username = email
+      ? uniqueUsernameGenerator({ ...config, seed: email.split('@')[0] })
+      : uniqueUsernameGenerator(config);
+    if (username.length < 3) username = username + 'user';
+    let count = 0;
+    let uniqueUsername = username;
+
+    while (
+      await this.userRepo.findOne({ where: { username: uniqueUsername } })
+    ) {
+      count += 1;
+      uniqueUsername = uniqueUsernameGenerator({
+        ...config,
+        seed: uniqueUsername + count.toString(),
+      });
+    }
+
+    return uniqueUsername;
+  }
+
   // Create a new user after Firebase signup
   async createUser({
     firebaseUid,
@@ -28,7 +61,9 @@ export class UsersService {
     emailVerified?: boolean;
   }) {
     const defaultRole = await this.rbacService.getRole(Role.USER);
+    const username = await this.generateUniqueUsername(email);
     const user = this.userRepo.create({
+      username,
       firebaseUid,
       email: email ?? undefined,
       phone: phone ?? undefined,

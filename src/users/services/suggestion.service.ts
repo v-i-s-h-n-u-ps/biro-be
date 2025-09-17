@@ -58,7 +58,6 @@ export class SuggestionService {
       Date.now() - maxStoryAgeDays * 24 * 60 * 60 * 1000,
     );
 
-    // Subquery: Excluded users (followees, followers, self)
     const excludedUsersSubQuery = this.followRepository
       .createQueryBuilder('follow')
       .select('follow.follower_id', 'user_id')

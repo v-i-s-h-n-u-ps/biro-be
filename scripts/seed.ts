@@ -36,7 +36,7 @@ async function seed() {
     }
   }
 
-  const superUserFirebaseUid = 'firebase-super-admin-uid'; // Replace with actual Firebase UID
+  const superUserFirebaseUid = 'firebase-super-admin-uid';
   let superUser = await userRepo.findOne({
     where: { firebaseUid: superUserFirebaseUid },
     relations: ['roles'],
@@ -51,6 +51,9 @@ async function seed() {
     superUser = userRepo.create({
       firebaseUid: superUserFirebaseUid,
       email: 'superadmin@example.com',
+      username: 'superadmin',
+      emailVerified: true,
+      isActive: true,
       roles: adminRole ? [adminRole] : [],
     });
 

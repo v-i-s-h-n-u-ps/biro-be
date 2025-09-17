@@ -30,6 +30,9 @@ export class User {
   @Column({ type: 'citext', nullable: true, unique: true })
   phone?: string;
 
+  @Column({ type: 'varchar', length: 50, unique: true, nullable: false })
+  username: string;
+
   @Column({ type: 'boolean', default: true })
   emailVerified: boolean;
 
