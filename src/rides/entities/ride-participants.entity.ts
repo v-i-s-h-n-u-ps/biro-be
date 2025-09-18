@@ -24,11 +24,11 @@ export class RideParticipant {
 
   @ManyToOne(() => User, { eager: true })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  participant: User;
 
   @ManyToOne(() => ResourceRoles, { eager: true })
-  @JoinColumn({ name: 'role_id' })
-  role: ResourceRoles;
+  @JoinColumn({ name: 'participant_role_id' })
+  participantRole: ResourceRoles;
 
   @Column({
     type: 'enum',

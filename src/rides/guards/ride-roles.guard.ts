@@ -9,30 +9,13 @@ import { ResourceRolesGuard } from 'src/authorization/rbac/guards/resource-roles
 import { RideParticipant } from '../entities/ride-participants.entity';
 
 @Injectable()
-export class RideRolesGuard extends ResourceRolesGuard<
-  RideParticipant,
-  'user',
-  'ride',
-  'role'
-> {
+export class RidesRolesGuard extends ResourceRolesGuard<RideParticipant> {
   constructor(
     reflector: Reflector,
     @InjectRepository(RideParticipant)
     protected readonly participantRepo: Repository<RideParticipant>,
   ) {
-    super(reflector);
-  }
-
-  protected getUserKey(): 'user' {
-    return 'user';
-  }
-
-  protected getResourceKey(): 'ride' {
-    return 'ride';
-  }
-
-  protected getResourceRoleKey(): 'role' {
-    return 'role';
+    super(reflector, 'participant', 'ride', 'participantRole');
   }
 
   protected getResourceId(req: Request): string {

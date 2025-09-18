@@ -6,11 +6,11 @@ async function runMigrations() {
     console.log('📦 Running migrations...');
 
     await dataSource.runMigrations();
-    console.log('✅ All migrations applied successfully');
+    console.log('🟢 All migrations applied successfully');
 
     await dataSource.destroy();
   } catch (err) {
-    console.error('❌ Error running migrations:', err);
+    console.error('💥 Error running migrations:', err);
     process.exit(1);
   }
 }

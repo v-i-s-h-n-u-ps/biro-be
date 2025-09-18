@@ -15,20 +15,25 @@ import {
   RESOURCE_ROLES_KEY,
 } from '../decorators/resource-roles.decorator';
 
+type ResourceRoleKeyOf<TRelation> = {
+  [K in keyof TRelation]: TRelation[K] extends ResourceRoles ? K : never;
+}[keyof TRelation];
+
 export abstract class ResourceRolesGuard<
-  TParticipant extends { [K in TResourceRoleKey]: ResourceRoles },
-  TUserKey extends keyof TParticipant & string,
-  TResourceKey extends keyof TParticipant & string,
-  TResourceRoleKey extends keyof TParticipant & string,
+  TRelation extends {
+    [K in ResourceRoleKeyOf<TRelation>]: ResourceRoles;
+  },
 > implements CanActivate
 {
-  protected abstract participantRepo: Repository<TParticipant>;
-  protected abstract getUserKey(): TUserKey;
-  protected abstract getResourceKey(): TResourceKey;
-  protected abstract getResourceRoleKey(): TResourceRoleKey;
+  protected abstract participantRepo: Repository<TRelation>;
   protected abstract getResourceId(req: Request): string;
 
-  constructor(protected readonly reflector: Reflector) {}
+  constructor(
+    protected readonly reflector: Reflector,
+    protected readonly userKey: keyof TRelation & string,
+    protected readonly resourceKey: keyof TRelation & string,
+    protected readonly resourceRoleKey: ResourceRoleKeyOf<TRelation> & string,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredRoles =
@@ -52,28 +57,29 @@ export abstract class ResourceRolesGuard<
 
     const userId = req.user.id;
     const resourceId = this.getResourceId(req);
-    const resourceRoleKey = this.getResourceRoleKey();
-    const resourceKey = this.getResourceKey();
-    const userKey = this.getUserKey();
+    const alias = this.participantRepo.metadata.name.toLowerCase();
 
-    const participantAlias = 'participant';
-    const roleAlias = 'role';
-    const permissionAlias = 'permission';
-    const resourceAlias = 'resource';
-
-    // Query all participant rows with roles and permissions
     const participants = await this.participantRepo
-      .createQueryBuilder(participantAlias)
-      // join the role relation
-      .innerJoinAndSelect(`${participantAlias}.${resourceRoleKey}`, roleAlias)
-      // join role permissions
-      .innerJoinAndSelect(`${roleAlias}.permissions`, permissionAlias)
-      // join the resource relation for filtering
-      .innerJoin(`${participantAlias}.${resourceKey}`, resourceAlias)
-      // filter by userId
-      .where(`${participantAlias}.${userKey}.id = :userId`, { userId })
-      // filter by resourceId
-      .andWhere(`${resourceAlias}.id = :resourceId`, { resourceId })
+      // Start building a query on the participant entity, aliasing it dynamically (ex: "rideparticipant")
+      .createQueryBuilder(alias)
+
+      // Join the participantRole relation (the ResourceRoles entity) and select it
+      // so that each participant includes their assigned role
+      .innerJoinAndSelect(`${alias}.${this.resourceRoleKey}`, 'role')
+
+      // Join the ride relation so we can filter by rideId
+      // We don’t select the ride because we only need it for filtering
+      .innerJoin(`${alias}.${this.resourceKey}`, this.resourceKey)
+
+      // Filter participants by the current user’s id
+      // `${alias}.${this.userKey}.id` resolves to something like "rideparticipant.participant.id"
+      .where(`${alias}.${this.userKey}.id = :userId`, { userId })
+
+      // Filter participants by the ride id from the request
+      // `${this.resourceKey}.id` resolves to "ride.id"
+      .andWhere(`${this.resourceKey}.id = :resourceId`, { resourceId })
+
+      // Execute the query and return an array of participants
       .getMany();
 
     if (!participants.length) {
@@ -83,13 +89,13 @@ export abstract class ResourceRolesGuard<
     // Extract unique ResourceRoles
     const uniqueRolesMap = new Map<string, ResourceRoles>();
     participants.forEach((p) => {
-      const role = p[resourceRoleKey];
+      const role: ResourceRoles = p[this.resourceRoleKey];
       uniqueRolesMap.set(role.id, role);
     });
     const userRoles = Array.from(uniqueRolesMap.values());
 
     // Role check
-    const roleNames = userRoles.map((r) => r.name);
+    const roleNames = userRoles.map((r) => r.id);
     const hasRole = requireAllRoles
       ? requiredRoles.every((r) => roleNames.includes(r))
       : requiredRoles.some((r) => roleNames.includes(r));

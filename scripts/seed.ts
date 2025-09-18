@@ -58,12 +58,12 @@ async function seed() {
     });
 
     await userRepo.save(superUser);
-    console.log('✅ Super user created');
+    console.log('👤 Super user created');
   } else {
-    console.log('Super user already exists');
+    console.log('👤 Super user already exists');
   }
 
-  console.log('✅ RBAC seed complete');
+  console.log('🔑 RBAC seed complete');
   await dataSource.destroy();
 }
 

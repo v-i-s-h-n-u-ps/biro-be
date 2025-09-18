@@ -34,7 +34,7 @@ async function generateMigration() {
         'tsconfig-paths/register',
         './node_modules/typeorm/cli.js',
         '-d',
-        './config/datasource.ts',
+        './database/datasource.ts',
         'migration:generate',
         `./database/migrations/${migrationName}`,
       ],
