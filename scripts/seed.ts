@@ -1,4 +1,4 @@
-import { dataSource } from 'config/datasource';
+import { dataSource } from 'database/datasource';
 
 import { Role } from 'src/common/constants/rbac.enum';
 import {

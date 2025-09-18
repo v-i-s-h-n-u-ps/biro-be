@@ -1,4 +1,4 @@
-import { dataSource } from 'config/datasource';
+import { dataSource } from 'database/datasource';
 
 async function runMigrations() {
   try {

@@ -1,5 +1,5 @@
 import { spawnSync } from 'child_process';
-import { dataSource } from 'config/datasource';
+import { dataSource } from 'database/datasource';
 
 async function generateMigration() {
   const migrationName = process.env.npm_config_name;
