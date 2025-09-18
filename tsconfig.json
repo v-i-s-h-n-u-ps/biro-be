@@ -28,12 +28,6 @@
       "scripts/*": ["./scripts/*"]
     }
   },
-  "include": [
-    "src/**/*.ts",
-    "src/common/types/**/*.d.ts",
-    "config/**/*.ts",
-    "database/**/*.ts",
-    "scripts/**/*.ts"
-  ],
+
   "exclude": ["node_modules", "dist"]
 }

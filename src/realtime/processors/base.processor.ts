@@ -34,33 +34,39 @@ export abstract class BaseRealtimeProcessor {
     }
   }
 
-  async process(job: Job<RealtimeJob>) {
+  private async emitToWs(job: RealtimeJob) {
     const { userIds, event, payload, websocketRoomIds, options, namespace } =
-      job.data;
-    const { data = {}, wsData = {}, pushData = {}, ...notification } = payload;
+      job;
+    const { data = {}, wsData = {}, pushData: _, ...notification } = payload;
     const wsDataFinal = { ...data, ...wsData, ...notification };
-    const pushFinal = { ...data, ...pushData, event };
 
-    const { strategy, emitToRoom, emitToUser } = options;
+    if (websocketRoomIds.length && options.emitToRoom) {
+      await Promise.all(
+        websocketRoomIds.map((roomId) =>
+          this.wsService.emitToRoom(namespace, roomId, event, wsDataFinal),
+        ),
+      );
+    }
+    if (options.emitToUser && userIds.length) {
+      await Promise.all(
+        userIds.map((uid) =>
+          this.wsService.emitToUser(namespace, uid, event, wsDataFinal),
+        ),
+      );
+    }
+  }
+
+  async process(job: Job<RealtimeJob>) {
+    const { userIds, event, payload, options } = job.data;
+    const { data = {}, wsData: _, pushData = {}, ...notification } = payload;
+    const { strategy, emitToUser } = options;
+
+    const pushFinal = { ...data, ...pushData, event };
 
     try {
       switch (strategy) {
         case DeliveryStrategy.WS_ONLY: {
-          if (websocketRoomIds.length && emitToRoom) {
-            websocketRoomIds.forEach((roomId) => {
-              this.wsService.emitToRoom(namespace, roomId, event, wsDataFinal);
-            });
-          }
-          if (emitToUser && userIds.length) {
-            for (const uid of userIds) {
-              await this.wsService.emitToUser(
-                namespace,
-                uid,
-                event,
-                wsDataFinal,
-              );
-            }
-          }
+          await this.emitToWs(job.data);
           break;
         }
         case DeliveryStrategy.PUSH_ONLY: {
@@ -71,32 +77,15 @@ export abstract class BaseRealtimeProcessor {
           break;
         }
         case DeliveryStrategy.WS_THEN_PUSH: {
-          const offlineUserIds: string[] = [];
+          await this.emitToWs(job.data);
 
-          if (websocketRoomIds.length && emitToRoom) {
-            websocketRoomIds.forEach((roomId) => {
-              this.wsService.emitToRoom(namespace, roomId, event, wsDataFinal);
-            });
-          }
+          const offlineUserIds: string[] = [];
           if (emitToUser) {
             for (const uid of userIds) {
               const sockets = await this.presenceService.getActiveSockets(uid);
-
-              if (sockets.length) {
-                // Online → emit to all connected devices
-                await this.wsService.emitToUser(
-                  namespace,
-                  uid,
-                  event,
-                  wsDataFinal,
-                );
-              } else {
-                // Offline → fallback to push
-                offlineUserIds.push(uid);
-              }
+              if (!sockets.length) offlineUserIds.push(uid);
             }
           }
-
           if (offlineUserIds.length) {
             await this.sendPush(offlineUserIds, {
               notification,

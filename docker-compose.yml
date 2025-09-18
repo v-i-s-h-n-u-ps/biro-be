@@ -4,7 +4,7 @@ services:
   postgres:
     image: postgis/postgis:15-3.3
     platform: linux/amd64
-    container_name: postgis
+    container_name: postgis_biro
     restart: always
     environment:
       POSTGRES_USER: ${DB_USERNAME:-nestuser}
@@ -24,6 +24,20 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  redis:
+    image: redis:7-alpine
+    container_name: redis_biro
+    restart: always
+    ports:
+      - '6380:6379' # <--- host port 6380 mapped to container port 6379
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   pgdata:
+  redisdata:

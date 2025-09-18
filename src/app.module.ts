@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import databaseConfig from 'config/database.config';
+import { validationSchema } from 'config/types';
 import { LoggerModule } from 'nestjs-pino';
 
 import { AuthModule } from './auth/auth.module';
@@ -53,8 +54,11 @@ import { AppService } from './app.service';
       inject: [QueueClientFactory],
     }),
     ConfigModule.forRoot({
+      cache: true,
       isGlobal: true,
+      validationSchema,
       envFilePath: `.env.local`,
+      ignoreEnvFile: process.env.MODE === 'production',
       load: [databaseConfig],
     }),
     LoggerModule.forRootAsync({
