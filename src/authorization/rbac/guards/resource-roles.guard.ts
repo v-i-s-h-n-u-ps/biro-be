@@ -30,7 +30,7 @@ export abstract class ResourceRolesGuard<
   },
 > implements CanActivate
 {
-  protected abstract participantRepo: Repository<TRelation>;
+  protected abstract relationRepo: Repository<TRelation>;
   protected abstract getResourceId(req: Request): string;
 
   constructor(
@@ -62,44 +62,27 @@ export abstract class ResourceRolesGuard<
 
     const userId = req.user.id;
     const resourceId = this.getResourceId(req);
-    const alias = this.participantRepo.metadata.name.toLowerCase();
+    const alias = this.relationRepo.metadata.name.toLowerCase();
 
-    const participants = await this.participantRepo
-      // Start building a query on the participant entity, aliasing it dynamically (ex: "rideparticipant")
+    const userRoleMap = await this.relationRepo
       .createQueryBuilder(alias)
-
-      // Join the participantRole relation (the ResourceRoles entity) and select it
-      // so that each participant includes their assigned role
       .innerJoinAndSelect(`${alias}.${this.resourceRoleKey}`, 'role')
-
-      // Join the ride relation so we can filter by rideId
-      // We don’t select the ride because we only need it for filtering
       .innerJoin(`${alias}.${this.resourceKey}`, this.resourceKey)
-
-      // Filter participants by the current user’s id
-      // `${alias}.${this.userKey}.id` resolves to something like "rideparticipant.participant.id"
       .where(`${alias}.${this.userKey}.id = :userId`, { userId })
-
-      // Filter participants by the ride id from the request
-      // `${this.resourceKey}.id` resolves to "ride.id"
       .andWhere(`${this.resourceKey}.id = :resourceId`, { resourceId })
-
-      // Execute the query and return an array of participants
       .getMany();
 
-    if (!participants.length) {
+    if (!userRoleMap.length) {
       throw new ForbiddenException('Not a participant');
     }
 
-    // Extract unique ResourceRoles
     const uniqueRolesMap = new Map<string, ResourceRoles>();
-    participants.forEach((p) => {
+    userRoleMap.forEach((p) => {
       const role: ResourceRoles = p[this.resourceRoleKey];
       uniqueRolesMap.set(role.id, role);
     });
-    const userRoles = Array.from(uniqueRolesMap.values());
 
-    // Role check
+    const userRoles = Array.from(uniqueRolesMap.values());
     const roleNames = userRoles.map((r) => r.id);
     const hasRole = requireAllRoles
       ? requiredRoles.every((r) => roleNames.includes(r))
