@@ -13,7 +13,7 @@ export class RidesRolesGuard extends ResourceRolesGuard<RideParticipant> {
   constructor(
     reflector: Reflector,
     @InjectRepository(RideParticipant)
-    protected readonly participantRepo: Repository<RideParticipant>,
+    protected readonly relationRepo: Repository<RideParticipant>,
   ) {
     super(reflector, 'participant', 'ride', 'participantRole');
   }
