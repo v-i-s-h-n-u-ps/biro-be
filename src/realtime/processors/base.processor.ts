@@ -38,7 +38,7 @@ export abstract class BaseRealtimeProcessor {
     const { userIds, event, payload, websocketRoomIds, options, namespace } =
       job.data;
     const { data = {}, wsData = {}, pushData = {}, ...notification } = payload;
-    const wsDataFinal = { ...data, ...wsData };
+    const wsDataFinal = { ...data, ...wsData, ...notification };
     const pushFinal = { ...data, ...pushData, event };
 
     const { strategy, emitToRoom, emitToUser } = options;

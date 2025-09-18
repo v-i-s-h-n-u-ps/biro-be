@@ -13,6 +13,13 @@ import { RbacService } from 'src/rbac/services/rbac.service';
 
 import { User } from '../entities/users.entity';
 
+const config: Config = {
+  dictionaries: [adjectives, nouns],
+  style: 'lowerCase',
+  ensureUnique: true,
+  separator: '.',
+};
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -22,12 +29,6 @@ export class UsersService {
   ) {}
 
   private async generateUniqueUsername(email?: string): Promise<string> {
-    const config: Config = {
-      dictionaries: [adjectives, nouns],
-      style: 'lowerCase',
-      ensureUnique: true,
-    };
-
     let username = email
       ? uniqueUsernameGenerator({ ...config, seed: email.split('@')[0] })
       : uniqueUsernameGenerator(config);

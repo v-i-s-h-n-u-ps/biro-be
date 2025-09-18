@@ -92,13 +92,6 @@ export class ConnectionsService {
     });
   }
 
-  private getUserData(user: User) {
-    return {
-      ...user,
-      ...user.profile,
-    };
-  }
-
   /** Send follow request or auto-accept if public */
   async followUser(followerId: string, followingId: string) {
     if (followerId === followingId) {
@@ -341,7 +334,7 @@ export class ConnectionsService {
       relations: ['blocked', 'blocked.profile'],
       order: { createdAt: 'DESC' },
     });
-    return blocks.map((b) => this.getUserData(b.blocked));
+    return blocks.map((b) => b.blocked);
   }
 
   async getFollowers(userId: string): Promise<User[]> {
@@ -350,7 +343,7 @@ export class ConnectionsService {
       relations: ['follower', 'follower.profile'],
       order: { createdAt: 'DESC' },
     });
-    return follows.map((f) => this.getUserData(f.follower));
+    return follows.map((f) => f.follower);
   }
 
   async getFollowing(userId: string): Promise<User[]> {
@@ -359,7 +352,7 @@ export class ConnectionsService {
       relations: ['following', 'following.profile'],
       order: { createdAt: 'DESC' },
     });
-    return follows.map((f) => this.getUserData(f.following));
+    return follows.map((f) => f.following);
   }
 
   async getFollowRequests(userId: string): Promise<User[]> {
@@ -368,6 +361,6 @@ export class ConnectionsService {
       relations: ['follower', 'follower.profile'],
       order: { createdAt: 'DESC' },
     });
-    return requests.map((f) => this.getUserData(f.follower));
+    return requests.map((f) => f.follower);
   }
 }
