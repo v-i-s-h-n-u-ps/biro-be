@@ -13,13 +13,13 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { type Request } from 'express';
 
 import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
 import { Roles } from 'src/authorization/rbac/decorators/roles.decorator';
 import { ResourceRolesGuard } from 'src/authorization/rbac/guards/resource-roles.guard';
 import { RideStatus } from 'src/common/constants/common.enum';
 import { ResourceRole, Role } from 'src/common/constants/rbac.enum';
-import { type RequestWithUser } from 'src/common/types/request-with-user';
 
 import { CreateRideDto } from '../dtos/create-ride.dto';
 import { UpdateRideDto } from '../dtos/update-ride.dto';
@@ -36,7 +36,7 @@ export class RideController {
 
   @Post()
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
-  createRide(@Req() req: RequestWithUser, @Body() data: CreateRideDto) {
+  createRide(@Req() req: Request, @Body() data: CreateRideDto) {
     return this.rideService.createRide(req.user, data);
   }
 
@@ -52,7 +52,7 @@ export class RideController {
 
   @Post(':rideId/join')
   joinRide(
-    @Req() req: RequestWithUser,
+    @Req() req: Request,
     @Param('rideId', ParseUUIDPipe) rideId: string,
   ) {
     return this.rideService.joinRide(req.user, rideId);

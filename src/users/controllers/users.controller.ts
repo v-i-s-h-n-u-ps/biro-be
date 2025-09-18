@@ -10,13 +10,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
+import { type Request } from 'express';
 
 import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
 import { Roles } from 'src/authorization/rbac/decorators/roles.decorator';
 import { RolesGuard } from 'src/authorization/rbac/guards/roles.guard';
 import { UserBasicDetailsDto } from 'src/common/dtos/user-basic-details.dto';
 import { UserResponseDto } from 'src/common/dtos/user-response.dto';
-import { type RequestWithUser } from 'src/common/types/request-with-user';
 
 import { UserProfileResponseDto } from '../dtos/responses/user-profile-response.dto';
 import { UpdateUserProfileDto } from '../dtos/update-user-profile.dto';
@@ -35,10 +35,7 @@ export class UsersController {
   ) {}
 
   @Get(':id')
-  async getUserProfile(
-    @Req() req: RequestWithUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getUserProfile(@Param('id', ParseUUIDPipe) id: string) {
     const user = await this.userProfileService.getProfile(id);
     return plainToInstance(UserProfileResponseDto, user, {
       strategy: 'excludeAll',
@@ -46,7 +43,7 @@ export class UsersController {
   }
 
   @Get()
-  async getMyProfile(@Req() req: RequestWithUser) {
+  async getMyProfile(@Req() req: Request) {
     const user = await this.userProfileService.getProfile(req.user.id);
     return plainToInstance(UserProfileResponseDto, user, {
       strategy: 'excludeAll',
@@ -54,10 +51,7 @@ export class UsersController {
   }
 
   @Patch()
-  async updateProfile(
-    @Req() req: RequestWithUser,
-    @Body() dto: UpdateUserProfileDto,
-  ) {
+  async updateProfile(@Req() req: Request, @Body() dto: UpdateUserProfileDto) {
     return this.userProfileService.updateProfile(req.user.id, dto);
   }
 
@@ -78,7 +72,7 @@ export class UsersController {
   }
 
   @Get('suggestions')
-  async getSuggestions(@Req() req: RequestWithUser) {
+  async getSuggestions(@Req() req: Request) {
     const suggestion = await this.suggestionService.getSuggestions(req.user.id);
     return suggestion.map((user) =>
       plainToInstance(UserBasicDetailsDto, user, { strategy: 'excludeAll' }),

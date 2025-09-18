@@ -5,10 +5,10 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { type Request } from 'express';
 import { Observable } from 'rxjs';
 import { Repository } from 'typeorm';
 
-import { RequestWithUser } from 'src/common/types/request-with-user';
 import { UserDevice } from 'src/users/entities/user-devices.entity';
 import { User } from 'src/users/entities/users.entity';
 
@@ -23,7 +23,7 @@ export class DeviceInterceptor implements NestInterceptor {
     context: ExecutionContext,
     next: CallHandler,
   ): Promise<Observable<unknown>> {
-    const request = context.switchToHttp().getRequest<RequestWithUser>();
+    const request = context.switchToHttp().getRequest<Request>();
     const user: User | undefined = request.user; // Only defined if authenticated
 
     const deviceToken = request.headers['x-device-token'] as string;

@@ -14,9 +14,9 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
+import { type Request } from 'express';
 
 import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
-import { type RequestWithUser } from 'src/common/types/request-with-user';
 
 import { CreateStoryDto } from '../dtos/create-story.dto';
 import { MyStoryDto } from '../dtos/responses/my-story.dto';
@@ -30,12 +30,12 @@ export class StoriesController {
 
   @Post()
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
-  async createStory(@Req() req: RequestWithUser, @Body() dto: CreateStoryDto) {
+  async createStory(@Req() req: Request, @Body() dto: CreateStoryDto) {
     return this.storiesService.createStory(req.user, dto.media);
   }
 
   @Get('feed')
-  async getFeed(@Req() req: RequestWithUser) {
+  async getFeed(@Req() req: Request) {
     const feed = await this.storiesService.getFeedStories(req.user.id);
     const response = feed.map((item) =>
       plainToInstance(StoryFeedItemDto, item),
@@ -44,7 +44,7 @@ export class StoriesController {
   }
 
   @Get('me')
-  async getMyStories(@Req() req: RequestWithUser) {
+  async getMyStories(@Req() req: Request) {
     const stories = await this.storiesService.getMyStories(req.user.id);
     const response = stories.map((item) => plainToInstance(MyStoryDto, item));
     return response;
@@ -54,7 +54,7 @@ export class StoriesController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async markSeen(
     @Param('id', ParseUUIDPipe) storyId: string,
-    @Req() req: RequestWithUser,
+    @Req() req: Request,
   ) {
     await this.storiesService.markAsSeen(storyId, req.user);
   }

@@ -5,9 +5,8 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { type Request } from 'express';
 import { FindOptionsWhere, Repository } from 'typeorm';
-
-import { RequestWithUser } from 'src/common/types/request-with-user';
 
 import {
   REQUIRE_ALL_RESOURCE_ROLES_KEY,
@@ -24,7 +23,7 @@ export abstract class ResourceRolesGuard<
   protected abstract participantRepo: Repository<TParticipant>;
   protected abstract getUserKey(): TUserKey;
   protected abstract getResourceKey(): TResourceKey;
-  protected abstract getResourceId(req: RequestWithUser): string;
+  protected abstract getResourceId(req: Request): string;
 
   constructor(protected readonly reflector: Reflector) {}
 
@@ -42,7 +41,7 @@ export abstract class ResourceRolesGuard<
     // If no roles required, allow access
     if (!requiredRoles.length) return true;
 
-    const req = context.switchToHttp().getRequest<RequestWithUser>();
+    const req = context.switchToHttp().getRequest<Request>();
     const userId = req.user.id;
     const resourceId = this.getResourceId(req);
 

@@ -12,9 +12,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
+import { type Request } from 'express';
 
 import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
-import { type RequestWithUser } from 'src/common/types/request-with-user';
 
 import { FollowDto } from '../dtos/responses/follow.dto';
 import { FollowUserDto } from '../dtos/responses/follow-users.dto';
@@ -27,7 +27,7 @@ export class ConnectionsController {
 
   @Post(':userId/follow')
   async followUser(
-    @Req() req: RequestWithUser,
+    @Req() req: Request,
     @Param('userId', ParseUUIDPipe) targetId: string,
   ) {
     const follow = await this.connectionsService.followUser(
@@ -40,7 +40,7 @@ export class ConnectionsController {
   @Patch(':followId/accept')
   @HttpCode(HttpStatus.NO_CONTENT)
   async acceptRequest(
-    @Req() req: RequestWithUser,
+    @Req() req: Request,
     @Param('followId', ParseUUIDPipe) followId: string,
   ) {
     await this.connectionsService.acceptRequest(req.user.id, followId);
@@ -49,7 +49,7 @@ export class ConnectionsController {
   @Patch(':followId/reject')
   @HttpCode(HttpStatus.NO_CONTENT)
   rejectRequest(
-    @Req() req: RequestWithUser,
+    @Req() req: Request,
     @Param('followId', ParseUUIDPipe) followId: string,
   ) {
     return this.connectionsService.rejectRequest(req.user.id, followId);
@@ -58,7 +58,7 @@ export class ConnectionsController {
   @Delete(':userId/unfollow')
   @HttpCode(HttpStatus.NO_CONTENT)
   async unfollowUser(
-    @Req() req: RequestWithUser,
+    @Req() req: Request,
     @Param('userId', ParseUUIDPipe) targetId: string,
   ) {
     await this.connectionsService.unfollowUser(req.user.id, targetId);
@@ -67,7 +67,7 @@ export class ConnectionsController {
   @Patch(':userId/block')
   @HttpCode(HttpStatus.NO_CONTENT)
   async blockUser(
-    @Req() req: RequestWithUser,
+    @Req() req: Request,
     @Param('userId', ParseUUIDPipe) targetId: string,
   ) {
     await this.connectionsService.blockUser(req.user.id, targetId);
@@ -76,7 +76,7 @@ export class ConnectionsController {
   @Patch(':userId/unblock')
   @HttpCode(HttpStatus.NO_CONTENT)
   async unblockUser(
-    @Req() req: RequestWithUser,
+    @Req() req: Request,
     @Param('userId', ParseUUIDPipe) targetId: string,
   ) {
     await this.connectionsService.unblockUser(req.user.id, targetId);

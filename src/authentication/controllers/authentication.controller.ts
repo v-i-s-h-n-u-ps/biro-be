@@ -9,9 +9,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
+import { type Request } from 'express';
 
 import { UserResponseDto } from 'src/common/dtos/user-response.dto';
-import { type RequestWithUser } from 'src/common/types/request-with-user';
 
 import { FirebaseAuthGuard } from '../guards/firebase-auth.guard';
 import { AuthenticationService } from '../services/authentication.service';
@@ -31,7 +31,7 @@ export class AuthenticationController {
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@Req() req: RequestWithUser) {
+  async logout(@Req() req: Request) {
     await this.authService.logout(req.user.firebaseUid);
   }
 }
