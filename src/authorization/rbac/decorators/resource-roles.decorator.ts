@@ -3,7 +3,7 @@ import { SetMetadata } from '@nestjs/common';
 export const RESOURCE_ROLES_KEY = 'resourceRoles';
 export const REQUIRE_ALL_RESOURCE_ROLES_KEY = 'requireAllResourceRoles';
 
-export function Roles(
+export function ResourceRoles(
   ...args: (string | string[] | boolean)[]
 ): ClassDecorator & MethodDecorator {
   let requireAll = false;

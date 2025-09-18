@@ -33,6 +33,7 @@ export class RideService {
     @InjectRepository(Ride) private readonly rideRepo: Repository<Ride>,
     @InjectRepository(RideParticipant)
     private readonly participantRepo: Repository<RideParticipant>,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly rbacService: RbacService,
     private readonly rideLocationService: RideLocationService,
     private readonly realtimeService: RealtimeService,
@@ -142,10 +143,18 @@ export class RideService {
     return participant;
   }
 
-  async acceptParticipant(participantId: string) {
+  async getParticipants(rideId: string) {
+    const ride = await this.rideRepo.findOne({
+      where: { id: rideId },
+      relations: ['participants', 'participants.user', 'participants.role'],
+    });
+    if (!ride) throw new NotFoundException('Ride not found');
+    return ride.participants;
+  }
+
+  async acceptParticipant(rideId: string, participantId: string) {
     const participant = await this.participantRepo.findOne({
-      where: { id: participantId },
-      relations: ['ride', 'user', 'ride.owner'],
+      where: { user: { id: participantId }, ride: { id: rideId } },
     });
     if (!participant) throw new NotFoundException('Participant not found');
 

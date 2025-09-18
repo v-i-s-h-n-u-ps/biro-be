@@ -13,20 +13,23 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
 import { type Request } from 'express';
 
 import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
+import { ResourceRoles } from 'src/authorization/rbac/decorators/resource-roles.decorator';
 import { Roles } from 'src/authorization/rbac/decorators/roles.decorator';
-import { ResourceRolesGuard } from 'src/authorization/rbac/guards/resource-roles.guard';
 import { RideStatus } from 'src/common/constants/common.enum';
 import { ResourceRole, Role } from 'src/common/constants/rbac.enum';
+import { UserBasicDetailsDto } from 'src/common/dtos/user-basic-details.dto';
 
 import { CreateRideDto } from '../dtos/create-ride.dto';
 import { UpdateRideDto } from '../dtos/update-ride.dto';
+import { RideRolesGuard } from '../guards/ride-roles.guard';
 import { RideService } from '../services/ride.service';
 import { RideSearchService } from '../services/ride-search.service';
 
-@UseGuards(FirebaseAuthGuard, ResourceRolesGuard)
+@UseGuards(FirebaseAuthGuard, RideRolesGuard)
 @Controller({ path: 'rides', version: '1' })
 export class RideController {
   constructor(
@@ -42,7 +45,8 @@ export class RideController {
 
   @Patch(':rideId')
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
-  @Roles(Role.ADMIN, ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR)
+  @Roles(Role.ADMIN)
+  @ResourceRoles(ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR)
   updateRide(
     @Param('rideId', ParseUUIDPipe) rideId: string,
     @Body() data: UpdateRideDto,
@@ -58,22 +62,38 @@ export class RideController {
     return this.rideService.joinRide(req.user, rideId);
   }
 
-  @Patch('participants/:participantId/accept')
-  @Roles(Role.ADMIN, ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR)
+  @Patch(':rideId/participants/:participantId/accept')
+  @Roles(Role.ADMIN)
+  @ResourceRoles(ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR)
   acceptParticipant(
+    @Param('rideId', ParseUUIDPipe) rideId: string,
     @Param('participantId', ParseUUIDPipe) participantId: string,
   ) {
-    return this.rideService.acceptParticipant(participantId);
+    return this.rideService.acceptParticipant(rideId, participantId);
+  }
+
+  @Get(':rideId/participants')
+  async getParticipants(@Param('rideId', ParseUUIDPipe) rideId: string) {
+    const participants = await this.rideService.getParticipants(rideId);
+    const response = {
+      count: participants.length,
+      participants: participants.map((p) =>
+        plainToInstance(UserBasicDetailsDto, p.user),
+      ),
+    };
+    return response;
   }
 
   @Patch(':rideId/cancel')
-  @Roles(Role.ADMIN, ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR)
+  @Roles(Role.ADMIN)
+  @ResourceRoles(ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR)
   cancelRide(@Param('rideId', ParseUUIDPipe) rideId: string) {
     return this.rideService.cancelOrCompleteRide(rideId, RideStatus.CANCELLED);
   }
 
   @Patch(':rideId/complete')
-  @Roles(Role.ADMIN, ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR)
+  @Roles(Role.ADMIN)
+  @ResourceRoles(ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR)
   completeRide(@Param('rideId', ParseUUIDPipe) rideId: string) {
     return this.rideService.cancelOrCompleteRide(rideId, RideStatus.COMPLETED);
   }

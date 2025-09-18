@@ -5,18 +5,20 @@ import { AuthorizationModule } from 'src/authorization/authorization.module';
 import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
 import { RealtimeModule } from 'src/realtime/realtime.module';
+import { User } from 'src/users/entities/users.entity';
 import { UsersModule } from 'src/users/users.module';
 
 import { RideController } from './controllers/ride.controller';
 import { RideParticipant } from './entities/ride-participants.entity';
 import { Ride } from './entities/rides.entity';
+import { RideRolesGuard } from './guards/ride-roles.guard';
 import { RideService } from './services/ride.service';
 import { RideLocationService } from './services/ride-location.service';
 import { RideSearchService } from './services/ride-search.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Ride, RideParticipant]),
+    TypeOrmModule.forFeature([Ride, RideParticipant, User]),
     AuthorizationModule,
     RealtimeModule,
     UsersModule,
@@ -27,6 +29,7 @@ import { RideSearchService } from './services/ride-search.service';
     RideLocationService,
     RideService,
     RideSearchService,
+    RideRolesGuard,
   ],
   controllers: [RideController],
 })

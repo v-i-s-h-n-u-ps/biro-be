@@ -12,7 +12,7 @@ export class WsFirebaseAuthGuard implements CanActivate {
 
     try {
       const decoded = await admin.auth().verifyIdToken(token);
-      client.data.userId = decoded.uid; // attach verified uid
+      client.data.userId = decoded.uid;
       return true;
     } catch (err) {
       console.error('Firebase auth error:', err);

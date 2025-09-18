@@ -15,6 +15,7 @@ import { type Request } from 'express';
 import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
 import { Roles } from 'src/authorization/rbac/decorators/roles.decorator';
 import { RolesGuard } from 'src/authorization/rbac/guards/roles.guard';
+import { Role } from 'src/common/constants/rbac.enum';
 import { UserBasicDetailsDto } from 'src/common/dtos/user-basic-details.dto';
 import { UserResponseDto } from 'src/common/dtos/user-response.dto';
 
@@ -56,7 +57,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @Roles('admin')
+  @Roles(Role.ADMIN)
   @UseGuards(RolesGuard)
   async assignRoles(
     @Param('id', ParseUUIDPipe) id: string,
