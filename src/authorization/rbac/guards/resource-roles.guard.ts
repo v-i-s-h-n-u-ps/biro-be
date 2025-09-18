@@ -9,15 +9,20 @@ import { Repository } from 'typeorm';
 
 import { ResourceRoles } from 'src/authorization/rbac/entities/resource-roles.entity';
 import { ResourceRole } from 'src/common/constants/rbac.enum';
+import { User } from 'src/users/entities/users.entity';
 
 import {
   REQUIRE_ALL_RESOURCE_ROLES_KEY,
   RESOURCE_ROLES_KEY,
 } from '../decorators/resource-roles.decorator';
 
-type ResourceRoleKeyOf<TRelation> = {
-  [K in keyof TRelation]: TRelation[K] extends ResourceRoles ? K : never;
-}[keyof TRelation];
+type ResourceRoleKeyOf<T> = {
+  [K in keyof T]: T[K] extends ResourceRoles ? K : never;
+}[keyof T];
+
+type UserKeyOf<T> = {
+  [K in keyof T]: T[K] extends User ? K : never;
+}[keyof T];
 
 export abstract class ResourceRolesGuard<
   TRelation extends {
@@ -30,7 +35,7 @@ export abstract class ResourceRolesGuard<
 
   constructor(
     protected readonly reflector: Reflector,
-    protected readonly userKey: keyof TRelation & string,
+    protected readonly userKey: UserKeyOf<TRelation> & string,
     protected readonly resourceKey: keyof TRelation & string,
     protected readonly resourceRoleKey: ResourceRoleKeyOf<TRelation> & string,
   ) {}
