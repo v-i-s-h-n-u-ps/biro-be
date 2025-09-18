@@ -1,4 +1,3 @@
-// src/auth/guards/firebase-auth.guard.ts
 import {
   CanActivate,
   ExecutionContext,

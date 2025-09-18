@@ -1,13 +1,13 @@
 import { dataSource } from 'database/datasource';
 
-import { Role } from 'src/common/constants/rbac.enum';
 import {
   PermissionsList,
   RolePermissionsMap,
   RolesList,
-} from 'src/rbac/constants/rbac.seed';
-import { Permissions } from 'src/rbac/entities/permission.entity';
-import { Roles } from 'src/rbac/entities/role.entity';
+} from 'src/authorization/rbac/constants/rbac.seed';
+import { Permissions } from 'src/authorization/rbac/entities/permission.entity';
+import { Roles } from 'src/authorization/rbac/entities/role.entity';
+import { Role } from 'src/common/constants/rbac.enum';
 import { User } from 'src/users/entities/users.entity';
 
 async function seed() {

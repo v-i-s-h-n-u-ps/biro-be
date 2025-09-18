@@ -11,7 +11,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { Roles } from 'src/rbac/entities/role.entity';
+import { Roles } from 'src/authorization/rbac/entities/role.entity';
 
 import { UserProfile } from './user-profile.entity';
 

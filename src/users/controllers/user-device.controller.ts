@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Post, Req, UseGuards } from '@nestjs/common';
 
-import { FirebaseAuthGuard } from 'src/auth/guards/firebase-auth.guard';
+import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
 import { type RequestWithUser } from 'src/common/types/request-with-user';
 
 import { DeregisterDeviceDto } from '../dtos/deregister-device.dto';

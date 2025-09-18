@@ -7,8 +7,8 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
+import { ResourceRoles } from 'src/authorization/rbac/entities/resource-roles.entity';
 import { ParticipantStatus } from 'src/common/constants/common.enum';
-import { ResourceRoles } from 'src/rbac/entities/resource-roles.entity';
 import { User } from 'src/users/entities/users.entity';
 
 import { Ride } from './rides.entity';

@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { AuthorizationModule } from 'src/authorization/authorization.module';
 import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
-import { RbacModule } from 'src/rbac/rbac.module';
 import { RealtimeModule } from 'src/realtime/realtime.module';
 import { UsersModule } from 'src/users/users.module';
 
@@ -17,7 +17,7 @@ import { RideSearchService } from './services/ride-search.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Ride, RideParticipant]),
-    RbacModule,
+    AuthorizationModule,
     RealtimeModule,
     UsersModule,
   ],

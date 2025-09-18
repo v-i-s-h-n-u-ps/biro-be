@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { RbacService } from 'src/authorization/rbac/services/rbac.service';
 import {
   DeliveryStrategy,
   ParticipantStatus,
@@ -14,7 +15,6 @@ import {
 } from 'src/common/constants/common.enum';
 import { NotificationEvents } from 'src/common/constants/notification-events.enum';
 import { ResourceRole } from 'src/common/constants/rbac.enum';
-import { RbacService } from 'src/rbac/services/rbac.service';
 import { RealtimePayload } from 'src/realtime/interfaces/realtime-job.interface';
 import { RealtimeService } from 'src/realtime/services/realtime.service';
 import { User } from 'src/users/entities/users.entity';

@@ -6,7 +6,7 @@ import {
   WebSocketGateway,
 } from '@nestjs/websockets';
 
-import { WsFirebaseAuthGuard } from 'src/auth/guards/ws-firebase-auth.guard';
+import { WsFirebaseAuthGuard } from 'src/authentication/guards/ws-firebase-auth.guard';
 import { WebSocketNamespace } from 'src/common/constants/common.enum';
 import {
   ClientEvents,

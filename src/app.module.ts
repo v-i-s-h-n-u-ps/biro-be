@@ -6,13 +6,13 @@ import databaseConfig from 'config/database.config';
 import { validationSchema } from 'config/types';
 import { LoggerModule } from 'nestjs-pino';
 
-import { AuthModule } from './auth/auth.module';
+import { AuthenticationModule } from './authentication/authentication.module';
+import { AuthorizationModule } from './authorization/authorization.module';
 import { RedisService } from './common/redis.service';
 import { ConnectionsModule } from './connections/connections.module';
 import { FirebaseModule } from './firebase/firebase.module';
 import { QueueClientFactory } from './queues/providers/queue-client-factory.provider';
 import { QueuesModule } from './queues/queues.module';
-import { RbacModule } from './rbac/rbac.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { RideModule } from './rides/rides.module';
 import { UsersModule } from './users/users.module';
@@ -21,9 +21,9 @@ import { AppService } from './app.service';
 
 @Module({
   imports: [
+    AuthenticationModule,
+    AuthorizationModule,
     FirebaseModule,
-    AuthModule,
-    RbacModule,
     UsersModule,
     QueuesModule,
     RealtimeModule,

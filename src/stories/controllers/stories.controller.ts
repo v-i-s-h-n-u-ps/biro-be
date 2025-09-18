@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 
-import { FirebaseAuthGuard } from 'src/auth/guards/firebase-auth.guard';
+import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
 import { type RequestWithUser } from 'src/common/types/request-with-user';
 
 import { CreateStoryDto } from '../dtos/create-story.dto';

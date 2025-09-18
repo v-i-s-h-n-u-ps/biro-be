@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { AuthorizationModule } from 'src/authorization/authorization.module';
 import { Follow } from 'src/connections/entities/follows.entity';
-import { RbacModule } from 'src/rbac/rbac.module';
 import { RideParticipant } from 'src/rides/entities/ride-participants.entity';
 import { Story } from 'src/stories/entities/story.entity';
 
@@ -27,7 +27,7 @@ import { UsersService } from './services/users.service';
       RideParticipant,
       Story,
     ]),
-    RbacModule,
+    AuthorizationModule,
   ],
   providers: [
     UsersService,

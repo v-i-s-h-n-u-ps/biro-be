@@ -10,7 +10,7 @@ import { UserDeviceService } from 'src/users/services/user-devices.service';
 import { UsersService } from 'src/users/services/users.service';
 
 @Injectable()
-export class AuthService {
+export class AuthenticationService {
   constructor(
     private readonly firebaseService: FirebaseService,
     private readonly usersService: UsersService,

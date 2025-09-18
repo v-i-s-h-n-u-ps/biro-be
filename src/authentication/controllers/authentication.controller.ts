@@ -14,12 +14,12 @@ import { UserResponseDto } from 'src/common/dtos/user-response.dto';
 import { type RequestWithUser } from 'src/common/types/request-with-user';
 
 import { FirebaseAuthGuard } from '../guards/firebase-auth.guard';
-import { AuthService } from '../services/auth.service';
+import { AuthenticationService } from '../services/authentication.service';
 
 @UseGuards(FirebaseAuthGuard)
 @Controller('auth')
-export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+export class AuthenticationController {
+  constructor(private readonly authService: AuthenticationService) {}
 
   @Get('login')
   async getProfile(@Body() body: { idToken: string }) {

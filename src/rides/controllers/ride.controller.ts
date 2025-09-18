@@ -14,12 +14,12 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 
-import { FirebaseAuthGuard } from 'src/auth/guards/firebase-auth.guard';
+import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
+import { Roles } from 'src/authorization/rbac/decorators/roles.decorator';
+import { ResourceRolesGuard } from 'src/authorization/rbac/guards/resource-roles.guard';
 import { RideStatus } from 'src/common/constants/common.enum';
 import { ResourceRole, Role } from 'src/common/constants/rbac.enum';
 import { type RequestWithUser } from 'src/common/types/request-with-user';
-import { Roles } from 'src/rbac/decorators/roles.decorator';
-import { ResourceRolesGuard } from 'src/rbac/guards/resource-roles.guard';
 
 import { CreateRideDto } from '../dtos/create-ride.dto';
 import { UpdateRideDto } from '../dtos/update-ride.dto';

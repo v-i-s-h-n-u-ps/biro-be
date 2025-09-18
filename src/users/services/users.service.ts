@@ -8,8 +8,8 @@ import {
   uniqueUsernameGenerator,
 } from 'unique-username-generator';
 
+import { RbacService } from 'src/authorization/rbac/services/rbac.service';
 import { Role } from 'src/common/constants/rbac.enum';
-import { RbacService } from 'src/rbac/services/rbac.service';
 
 import { User } from '../entities/users.entity';
 

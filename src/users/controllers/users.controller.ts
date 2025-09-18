@@ -11,12 +11,12 @@ import {
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 
-import { FirebaseAuthGuard } from 'src/auth/guards/firebase-auth.guard';
+import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
+import { Roles } from 'src/authorization/rbac/decorators/roles.decorator';
+import { RolesGuard } from 'src/authorization/rbac/guards/roles.guard';
 import { UserBasicDetailsDto } from 'src/common/dtos/user-basic-details.dto';
 import { UserResponseDto } from 'src/common/dtos/user-response.dto';
 import { type RequestWithUser } from 'src/common/types/request-with-user';
-import { Roles } from 'src/rbac/decorators/roles.decorator';
-import { RolesGuard } from 'src/rbac/guards/roles.guard';
 
 import { UserProfileResponseDto } from '../dtos/responses/user-profile-response.dto';
 import { UpdateUserProfileDto } from '../dtos/update-user-profile.dto';

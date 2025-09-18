@@ -2,12 +2,19 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FindOptionsWhere, Repository } from 'typeorm';
 
 import { RequestWithUser } from 'src/common/types/request-with-user';
 
+import {
+  REQUIRE_ALL_RESOURCE_ROLES_KEY,
+  RESOURCE_ROLES_KEY,
+} from '../decorators/resource-roles.decorator';
+
+@Injectable()
 export abstract class ResourceRolesGuard<
   TParticipant extends Record<string, unknown>,
   TUserKey extends keyof TParticipant,
@@ -22,18 +29,18 @@ export abstract class ResourceRolesGuard<
   constructor(protected readonly reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Get required roles from metadata
     const requiredRoles: string[] =
-      this.reflector.get<string[]>('roles', context.getHandler()) ?? [];
-    const requiredPermissions: string[] =
-      this.reflector.get<string[]>('permissions', context.getHandler()) ?? [];
-    const requireAllRoles: boolean =
-      this.reflector.get<boolean>('requireAllRoles', context.getHandler()) ??
-      false;
-    const requireAllPermissions: boolean =
+      this.reflector.get<string[]>(RESOURCE_ROLES_KEY, context.getHandler()) ??
+      [];
+    const requireAll: boolean =
       this.reflector.get<boolean>(
-        'requireAllPermissions',
+        REQUIRE_ALL_RESOURCE_ROLES_KEY,
         context.getHandler(),
       ) ?? false;
+
+    // If no roles required, allow access
+    if (!requiredRoles.length) return true;
 
     const req = context.switchToHttp().getRequest<RequestWithUser>();
     const userId = req.user.id;
@@ -42,7 +49,7 @@ export abstract class ResourceRolesGuard<
     const userKey = this.getUserKey();
     const resourceKey = this.getResourceKey();
 
-    // Dynamically construct the TypeORM where clause
+    // Fetch participant with its resource role
     const whereClause: FindOptionsWhere<TParticipant> = {
       [userKey]: { id: userId },
       [resourceKey]: { id: resourceId },
@@ -50,41 +57,19 @@ export abstract class ResourceRolesGuard<
 
     const participant = await this.participantRepo.findOne({
       where: whereClause,
-      relations: ['resourceRole', 'resourceRole.permissions'],
+      relations: ['resourceRole'], // we only need the role itself
     });
 
     if (!participant) throw new ForbiddenException('Not a participant');
 
-    const participantRole = participant.resourceRole as {
-      name: string;
-      permissions: { id: string }[];
-    };
+    const participantRole = participant.resourceRole as { name: string };
 
     // Role check
-    if (requiredRoles.length) {
-      const hasRoles = requiredRoles.map((r) =>
-        participantRole.name.includes(r),
-      );
-      if (
-        requireAllRoles ? !hasRoles.every(Boolean) : !hasRoles.some(Boolean)
-      ) {
-        throw new ForbiddenException('Insufficient role');
-      }
-    }
+    const hasRoles = requireAll
+      ? requiredRoles.every((r) => participantRole.name === r)
+      : requiredRoles.some((r) => participantRole.name === r);
 
-    // Permission check
-    if (requiredPermissions.length) {
-      const hasPermissions = requiredPermissions.map((p) =>
-        participantRole.permissions.some((per) => per.id === p),
-      );
-      if (
-        requireAllPermissions
-          ? !hasPermissions.every(Boolean)
-          : !hasPermissions.some(Boolean)
-      ) {
-        throw new ForbiddenException('Permission denied');
-      }
-    }
+    if (!hasRoles) throw new ForbiddenException('Insufficient role');
 
     return true;
   }

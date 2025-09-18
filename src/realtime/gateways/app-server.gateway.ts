@@ -10,7 +10,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 
-import { WsFirebaseAuthGuard } from 'src/auth/guards/ws-firebase-auth.guard';
+import { WsFirebaseAuthGuard } from 'src/authentication/guards/ws-firebase-auth.guard';
 import {
   ClientEvents,
   NotificationEvents,
