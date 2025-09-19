@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   CanActivate,
   ExecutionContext,
   ForbiddenException,
@@ -17,7 +18,7 @@ import {
 } from '../decorators/resource-roles.decorator';
 
 type ForeignKeyOf<T, V> = {
-  [K in keyof T & string]: T[K] extends V ? K : never;
+  [K in keyof Partial<T> & string]: T[K] extends V ? K : never;
 }[keyof T & string];
 
 export abstract class ResourceRolesGuard<
@@ -59,6 +60,8 @@ export abstract class ResourceRolesGuard<
     const resourceId = this.getResourceId(req);
     const alias = this.relationRepo.metadata.name.toLowerCase();
 
+    if (!resourceId) throw new BadRequestException('Invalid resource ID');
+
     const roleNames = await this.relationRepo
       .createQueryBuilder(alias)
       .innerJoin(`${alias}.${this.resourceRoleKey}`, 'role')
@@ -70,9 +73,8 @@ export abstract class ResourceRolesGuard<
       .getRawMany<{ id: ResourceRole }>()
       .then((rows) => rows.map((r) => r.id));
 
-    if (!roleNames.length) {
+    if (!roleNames.length)
       throw new ForbiddenException('No role assigned for this resource');
-    }
 
     const hasRole = requireAllRoles
       ? requiredRoles.every((r) => roleNames.includes(r))
