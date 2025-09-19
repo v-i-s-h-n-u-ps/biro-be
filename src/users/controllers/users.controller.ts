@@ -12,7 +12,6 @@ import {
 import { plainToInstance } from 'class-transformer';
 import { type Request } from 'express';
 
-import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
 import { Roles } from 'src/authorization/rbac/decorators/roles.decorator';
 import { RolesGuard } from 'src/authorization/rbac/guards/roles.guard';
 import { Role } from 'src/common/constants/rbac.enum';
@@ -26,7 +25,6 @@ import { SuggestionService } from '../services/suggestion.service';
 import { UserProfileService } from '../services/user-profile.service';
 import { UsersService } from '../services/users.service';
 
-@UseGuards(FirebaseAuthGuard)
 @Controller({ path: 'users', version: '1' })
 export class UsersController {
   constructor(
@@ -43,7 +41,7 @@ export class UsersController {
     });
   }
 
-  @Get()
+  @Get('me')
   async getMyProfile(@Req() req: Request) {
     const user = await this.userProfileService.getProfile(req.user.id);
     return plainToInstance(UserProfileResponseDto, user, {

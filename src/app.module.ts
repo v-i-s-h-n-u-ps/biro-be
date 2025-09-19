@@ -1,12 +1,14 @@
 import { BullModule, BullModuleOptions } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import databaseConfig from 'config/database.config';
 import { validationSchema } from 'config/types';
 import { LoggerModule } from 'nestjs-pino';
 
 import { AuthenticationModule } from './authentication/authentication.module';
+import { FirebaseAuthGuard } from './authentication/guards/firebase-auth.guard';
 import { AuthorizationModule } from './authorization/authorization.module';
 import { RedisService } from './common/redis.service';
 import { ConnectionsModule } from './connections/connections.module';
@@ -80,6 +82,13 @@ import { AppService } from './app.service';
     }),
   ],
   controllers: [AppController],
-  providers: [AppService, RedisService],
+  providers: [
+    AppService,
+    RedisService,
+    {
+      provide: APP_GUARD,
+      useClass: FirebaseAuthGuard,
+    },
+  ],
 })
 export class AppModule {}

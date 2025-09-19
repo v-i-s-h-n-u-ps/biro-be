@@ -1,28 +1,28 @@
 import {
   Body,
   Controller,
-  Get,
   HttpCode,
   HttpStatus,
   Post,
   Req,
-  UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { type Request } from 'express';
 
+import { Public } from 'src/common/decorators/public.decorator';
 import { UserResponseDto } from 'src/common/dtos/user-response.dto';
 
-import { FirebaseAuthGuard } from '../guards/firebase-auth.guard';
 import { AuthenticationService } from '../services/authentication.service';
 
-@UseGuards(FirebaseAuthGuard)
-@Controller('auth')
+@Controller({ path: 'auth', version: '1' })
 export class AuthenticationController {
   constructor(private readonly authService: AuthenticationService) {}
 
-  @Get('login')
+  @Post('login')
+  @Public()
   async getProfile(@Body() body: { idToken: string }) {
+    if (!body.idToken) throw new UnauthorizedException('ID token is required');
     const user = await this.authService.validateAndLogin(body.idToken);
     return plainToInstance(UserResponseDto, user, {
       strategy: 'excludeAll',

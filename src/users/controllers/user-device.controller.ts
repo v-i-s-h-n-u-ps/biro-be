@@ -1,13 +1,10 @@
-import { Body, Controller, Delete, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Post, Req } from '@nestjs/common';
 import { type Request } from 'express';
-
-import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
 
 import { DeregisterDeviceDto } from '../dtos/deregister-device.dto';
 import { RegisterDeviceDto } from '../dtos/register-device.dto';
 import { UserDeviceService } from '../services/user-devices.service';
 
-@UseGuards(FirebaseAuthGuard)
 @Controller({ path: 'users/devices', version: '1' })
 export class UserDeviceController {
   constructor(private readonly userDeviceService: UserDeviceService) {}

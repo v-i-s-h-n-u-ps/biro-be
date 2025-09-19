@@ -5,8 +5,10 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 
+import { IS_PUBLIC_KEY } from 'src/common/decorators/public.decorator';
 import { FirebaseService } from 'src/firebase/services/firebase.service';
 import { UsersService } from 'src/users/services/users.service';
 
@@ -15,37 +17,34 @@ export class FirebaseAuthGuard implements CanActivate {
   constructor(
     private readonly userService: UsersService,
     private readonly firebaseService: FirebaseService,
+    private readonly reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) return true;
     const request = context.switchToHttp().getRequest<Request>();
+
     const authHeader = request.headers['authorization'];
 
-    if (!authHeader) {
-      throw new UnauthorizedException('Missing Authorization header');
-    }
+    if (!authHeader) throw new UnauthorizedException('You are not logged in');
 
     const token = authHeader.replace('Bearer ', '');
-    if (!token) {
-      throw new UnauthorizedException('Invalid Authorization header format');
-    }
+    if (!token) throw new UnauthorizedException('You are not logged in');
 
     try {
       const decodedToken = await this.firebaseService.verify(token);
       const userRecord = await this.firebaseService.getUser(decodedToken.uid);
 
-      // ✅ Check verification status
       if (!userRecord.emailVerified && !userRecord.phoneNumber) {
         throw new ForbiddenException('User is not verified');
       }
 
       const user = await this.userService.findById(userRecord.uid);
-
-      // Attach user to request
-      request.user = {
-        ...user,
-        claims: decodedToken,
-      };
+      request.user = { ...user, claims: decodedToken };
 
       return true;
     } catch (err: unknown) {

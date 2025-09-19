@@ -9,18 +9,14 @@ import {
   Patch,
   Post,
   Req,
-  UseGuards,
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { type Request } from 'express';
-
-import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
 
 import { FollowDto } from '../dtos/responses/follow.dto';
 import { FollowUserDto } from '../dtos/responses/follow-users.dto';
 import { ConnectionsService } from '../services/connections.service';
 
-@UseGuards(FirebaseAuthGuard)
 @Controller({ path: 'connections', version: '1' })
 export class ConnectionsController {
   constructor(private readonly connectionsService: ConnectionsService) {}

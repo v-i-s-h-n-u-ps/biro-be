@@ -9,14 +9,11 @@ import {
   ParseUUIDPipe,
   Post,
   Req,
-  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { type Request } from 'express';
-
-import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
 
 import { CreateStoryDto } from '../dtos/create-story.dto';
 import { MyStoryDto } from '../dtos/responses/my-story.dto';
@@ -24,7 +21,6 @@ import { StoryFeedItemDto } from '../dtos/responses/story-feed-item.dto';
 import { StoriesService } from '../services/stories.service';
 
 @Controller({ path: 'stories', version: '1' })
-@UseGuards(FirebaseAuthGuard)
 export class StoriesController {
   constructor(private readonly storiesService: StoriesService) {}
 

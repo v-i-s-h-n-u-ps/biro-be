@@ -16,7 +16,6 @@ import {
 import { plainToInstance } from 'class-transformer';
 import { type Request } from 'express';
 
-import { FirebaseAuthGuard } from 'src/authentication/guards/firebase-auth.guard';
 import { ResourceRoles } from 'src/authorization/rbac/decorators/resource-roles.decorator';
 import { Roles } from 'src/authorization/rbac/decorators/roles.decorator';
 import { RideStatus } from 'src/common/constants/common.enum';
@@ -29,7 +28,7 @@ import { RideRolesGuard } from '../guards/ride-roles.guard';
 import { RideService } from '../services/ride.service';
 import { RideSearchService } from '../services/ride-search.service';
 
-@UseGuards(FirebaseAuthGuard, RideRolesGuard)
+@UseGuards(RideRolesGuard)
 @Controller({ path: 'rides', version: '1' })
 export class RideController {
   constructor(
