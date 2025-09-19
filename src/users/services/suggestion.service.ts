@@ -246,7 +246,7 @@ export class SuggestionService {
     const idOrderMap = new Map<string, number>(
       orderedIds.map((id, index) => [id, index]),
     );
-    suggestions.sort((a, b) => idOrderMap.get(a.id)! - idOrderMap.get(b.id)!);
+    suggestions.sort((a, b) => idOrderMap.get(a.id) - idOrderMap.get(b.id));
 
     return suggestions;
   }

@@ -48,4 +48,4 @@ async function generateMigration() {
   }
 }
 
-generateMigration();
+generateMigration().catch(console.error);

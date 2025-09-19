@@ -8,8 +8,8 @@ export class RedisService implements OnApplicationShutdown {
 
   constructor(private readonly configService: ConfigService) {
     this.client = new IORedis.Redis(
-      this.configService.get('REDIS_PORT')!,
-      this.configService.get('REDIS_HOST')!,
+      this.configService.get('REDIS_PORT'),
+      this.configService.get('REDIS_HOST'),
       {
         db: this.configService.get('REDIS_DB_INDEX'),
         maxRetriesPerRequest: 1,

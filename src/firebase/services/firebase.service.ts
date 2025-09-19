@@ -54,21 +54,21 @@ export class FirebaseService {
         break;
       case 'normal':
         message.notification = notification;
-        message.android!.notification = {
+        message.android.notification = {
           sound: 'default',
           channelId: 'default',
         };
-        message.apns!.payload!.aps = { sound: 'default' };
+        message.apns.payload.aps = { sound: 'default' };
         break;
       case 'live':
         message.notification = notification;
         message.data = { ...data, activityId, type: 'live-activity' };
-        message.android!.notification = {
+        message.android.notification = {
           sound: 'default',
           channelId: 'default',
           ...(type === 'live' ? { ongoing: true } : {}),
         };
-        message.apns!.payload!.aps = { sound: 'default', 'mutable-content': 1 };
+        message.apns.payload.aps = { sound: 'default', 'mutable-content': 1 };
         break;
     }
 

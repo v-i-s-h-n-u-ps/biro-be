@@ -73,7 +73,7 @@ export class StoriesService {
           stories: [],
         });
       }
-      feedMap.get(key)!.stories.push({
+      feedMap.get(key).stories.push({
         id: story.id,
         media: story.media,
         createdAt: story.createdAt,

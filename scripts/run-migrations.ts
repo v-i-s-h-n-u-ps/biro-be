@@ -15,4 +15,4 @@ async function runMigrations() {
   }
 }
 
-runMigrations();
+runMigrations().catch(console.error);

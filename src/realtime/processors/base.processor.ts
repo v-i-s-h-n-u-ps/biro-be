@@ -41,10 +41,8 @@ export abstract class BaseRealtimeProcessor {
     const wsDataFinal = { ...data, ...wsData, ...notification };
 
     if (websocketRoomIds.length && options.emitToRoom) {
-      await Promise.all(
-        websocketRoomIds.map((roomId) =>
-          this.wsService.emitToRoom(namespace, roomId, event, wsDataFinal),
-        ),
+      websocketRoomIds.forEach((roomId) =>
+        this.wsService.emitToRoom(namespace, roomId, event, wsDataFinal),
       );
     }
     if (options.emitToUser && userIds.length) {
