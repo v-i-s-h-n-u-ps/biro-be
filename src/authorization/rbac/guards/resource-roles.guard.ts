@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
-import { Repository } from 'typeorm';
+import { ObjectLiteral, Repository } from 'typeorm';
 
 import { ResourceRoles } from 'src/authorization/rbac/entities/resource-roles.entity';
 import { ResourceRole } from 'src/common/constants/rbac.enum';
@@ -16,18 +16,13 @@ import {
   RESOURCE_ROLES_KEY,
 } from '../decorators/resource-roles.decorator';
 
-type ResourceRoleKeyOf<T> = {
-  [K in keyof T]: T[K] extends ResourceRoles ? K : never;
-}[keyof T];
-
-type UserKeyOf<T> = {
-  [K in keyof T]: T[K] extends User ? K : never;
-}[keyof T];
+type ForeignKeyOf<T, V> = {
+  [K in keyof T & string]: T[K] extends V ? K : never;
+}[keyof T & string];
 
 export abstract class ResourceRolesGuard<
-  TRelation extends {
-    [K in ResourceRoleKeyOf<TRelation>]: ResourceRoles;
-  },
+  TRelation extends ObjectLiteral,
+  TResource extends ObjectLiteral,
 > implements CanActivate
 {
   protected abstract relationRepo: Repository<TRelation>;
@@ -35,9 +30,9 @@ export abstract class ResourceRolesGuard<
 
   constructor(
     protected readonly reflector: Reflector,
-    protected readonly userKey: UserKeyOf<TRelation> & string,
-    protected readonly resourceKey: keyof TRelation & string,
-    protected readonly resourceRoleKey: ResourceRoleKeyOf<TRelation> & string,
+    protected readonly userKey: ForeignKeyOf<TRelation, User>,
+    protected readonly resourceKey: ForeignKeyOf<TRelation, TResource>,
+    protected readonly resourceRoleKey: ForeignKeyOf<TRelation, ResourceRoles>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -56,44 +51,35 @@ export abstract class ResourceRolesGuard<
 
     const req = context.switchToHttp().getRequest<Request>();
 
-    if (!req.user || !req.user.roles) {
-      throw new ForbiddenException('User not authenticated');
-    }
+    if (!req.user) throw new ForbiddenException('User not authenticated');
+
+    if (req.user.username === 'superuser') return true;
 
     const userId = req.user.id;
     const resourceId = this.getResourceId(req);
     const alias = this.relationRepo.metadata.name.toLowerCase();
 
-    const userRoleMap = await this.relationRepo
+    const roleNames = await this.relationRepo
       .createQueryBuilder(alias)
-      .innerJoinAndSelect(`${alias}.${this.resourceRoleKey}`, 'role')
+      .innerJoin(`${alias}.${this.resourceRoleKey}`, 'role')
       .innerJoin(`${alias}.${this.resourceKey}`, this.resourceKey)
       .where(`${alias}.${this.userKey}.id = :userId`, { userId })
       .andWhere(`${this.resourceKey}.id = :resourceId`, { resourceId })
-      .getMany();
+      .select('role.id', 'id')
+      .distinct(true)
+      .getRawMany<{ id: ResourceRole }>()
+      .then((rows) => rows.map((r) => r.id));
 
-    if (!userRoleMap.length) {
-      throw new ForbiddenException('Not a participant');
+    if (!roleNames.length) {
+      throw new ForbiddenException('No role assigned for this resource');
     }
 
-    const uniqueRolesMap = new Map<string, ResourceRoles>();
-    userRoleMap.forEach((p) => {
-      const role: ResourceRoles = p[this.resourceRoleKey];
-      uniqueRolesMap.set(role.id, role);
-    });
-
-    const userRoles = Array.from(uniqueRolesMap.values());
-    const roleNames = userRoles.map((r) => r.id);
     const hasRole = requireAllRoles
       ? requiredRoles.every((r) => roleNames.includes(r))
       : requiredRoles.some((r) => roleNames.includes(r));
 
     if (!hasRole) {
-      throw new ForbiddenException(
-        `Required ${requireAllRoles ? 'ALL' : 'ANY'} of roles: [${requiredRoles.join(
-          ', ',
-        )}]`,
-      );
+      throw new ForbiddenException('You do not have enough permissions');
     }
 
     return true;

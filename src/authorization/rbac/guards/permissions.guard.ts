@@ -36,11 +36,10 @@ export class PermissionsGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const user: User | undefined = request.user;
 
-    if (!user || !user.roles) {
-      throw new ForbiddenException('User not authenticated');
-    }
+    if (!user) throw new ForbiddenException('User not authenticated');
 
-    // Flatten all permissions from all roles
+    if (user.username === 'superuser') return true;
+
     const userPermissions = user.roles.flatMap((r) =>
       r.permissions.map((p) => p.id),
     );
@@ -49,11 +48,8 @@ export class PermissionsGuard implements CanActivate {
       ? requiredPermissions.every((p) => userPermissions.includes(p))
       : requiredPermissions.some((p) => userPermissions.includes(p));
 
-    if (!hasPermission) {
-      throw new ForbiddenException(
-        `Required ${requireAll ? 'ALL' : 'ANY'} of permissions: [${requiredPermissions.join(', ')}]`,
-      );
-    }
+    if (!hasPermission)
+      throw new ForbiddenException('You do not have enough permissions');
 
     return true;
   }

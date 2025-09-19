@@ -1,15 +1,17 @@
 import { SetMetadata } from '@nestjs/common';
 
+import { Permission } from 'src/common/constants/rbac.enum';
+
 export const PERMISSIONS_KEY = 'permissions';
 export const REQUIRE_ALL_PERMISSIONS_KEY = 'requireAllPermissions';
 
 export function Permissions(
-  ...args: (string | string[] | boolean)[]
+  ...args: (Permission | Permission[] | boolean)[]
 ): ClassDecorator & MethodDecorator {
   let requireAll = false;
-  const permissions: string[] = [];
+  const permissions: Permission[] = [];
 
-  for (const arg of args) {
+  args.forEach((arg) => {
     if (typeof arg === 'boolean') {
       requireAll = arg;
     } else if (Array.isArray(arg)) {
@@ -17,29 +19,21 @@ export function Permissions(
     } else if (typeof arg === 'string') {
       permissions.push(arg);
     }
-  }
+  });
 
   return (
     target: (new (...args: unknown[]) => unknown) | object,
     propertyKey?: string | symbol,
     descriptor?: PropertyDescriptor,
   ) => {
+    const Permissions = SetMetadata(PERMISSIONS_KEY, permissions);
+    const RequireAll = SetMetadata(REQUIRE_ALL_PERMISSIONS_KEY, requireAll);
     if (propertyKey !== undefined && descriptor !== undefined) {
-      // Method decorator
-      SetMetadata(PERMISSIONS_KEY, permissions)(
-        target,
-        propertyKey,
-        descriptor,
-      );
-      SetMetadata(REQUIRE_ALL_PERMISSIONS_KEY, requireAll)(
-        target,
-        propertyKey,
-        descriptor,
-      );
+      Permissions(target, propertyKey, descriptor);
+      RequireAll(target, propertyKey, descriptor);
     } else if (typeof target === 'function') {
-      // Class decorator
-      SetMetadata(PERMISSIONS_KEY, permissions)(target);
-      SetMetadata(REQUIRE_ALL_PERMISSIONS_KEY, requireAll)(target);
+      Permissions(target);
+      RequireAll(target);
     }
   };
 }

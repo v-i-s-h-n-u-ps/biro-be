@@ -7,9 +7,10 @@ import { Repository } from 'typeorm';
 import { ResourceRolesGuard } from 'src/authorization/rbac/guards/resource-roles.guard';
 
 import { RideParticipant } from '../entities/ride-participants.entity';
+import { Ride } from '../entities/rides.entity';
 
 @Injectable()
-export class RidesRolesGuard extends ResourceRolesGuard<RideParticipant> {
+export class RideRolesGuard extends ResourceRolesGuard<RideParticipant, Ride> {
   constructor(
     reflector: Reflector,
     @InjectRepository(RideParticipant)

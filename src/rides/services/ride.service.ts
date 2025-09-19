@@ -69,6 +69,7 @@ export class RideService {
       startPoint: latLngToPoint(data.startPoint),
       endPoint: latLngToPoint(data.endPoint),
       route: latLngsToLinestring(data.route ?? []),
+      owner,
     });
     await this.rideRepo.save(ride);
 
@@ -80,9 +81,9 @@ export class RideService {
 
     const participant = this.participantRepo.create({
       ride,
-      user: owner,
+      participant: owner,
       status: ParticipantStatus.ACCEPTED,
-      role: role,
+      participantRole: role,
     });
     await this.participantRepo.save(participant);
 
@@ -112,11 +113,19 @@ export class RideService {
       (p) => p.status === ParticipantStatus.ACCEPTED,
     ).length;
     if (acceptedCount >= 100) throw new BadRequestException('Ride is full');
+    const participantRole = await this.rbacService.getResourceRoles(
+      ResourceRole.RIDE_MEMBER,
+    );
 
     const status = ride.isPublic
       ? ParticipantStatus.ACCEPTED
       : ParticipantStatus.PENDING;
-    const participant = this.participantRepo.create({ ride, user, status });
+    const participant = this.participantRepo.create({
+      ride,
+      participant: user,
+      status,
+      participantRole,
+    });
     await this.participantRepo.save(participant);
 
     if (status === ParticipantStatus.ACCEPTED) {
@@ -154,7 +163,7 @@ export class RideService {
 
   async acceptParticipant(rideId: string, participantId: string) {
     const participant = await this.participantRepo.findOne({
-      where: { user: { id: participantId }, ride: { id: rideId } },
+      where: { participant: { id: participantId }, ride: { id: rideId } },
     });
     if (!participant) throw new NotFoundException('Participant not found');
 
@@ -162,8 +171,8 @@ export class RideService {
     await this.participantRepo.save(participant);
 
     await this.sendNotification({
-      userIds: [participant.user.id],
-      icon: participant.user.profile.avatarUrl,
+      userIds: [participant.participant.id],
+      icon: participant.participant.profile.avatarUrl,
       event: NotificationEvents.NOTIFICATION_PARTICIPANT_ACCEPTED,
       title: 'Ride Participation Accepted',
       body: `Your request to join the ride "${participant.ride.title}" has been accepted.`,

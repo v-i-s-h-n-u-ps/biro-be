@@ -78,7 +78,7 @@ export class RideController {
     const response = {
       count: participants.length,
       participants: participants.map((p) =>
-        plainToInstance(UserBasicDetailsDto, p.user),
+        plainToInstance(UserBasicDetailsDto, p.participant),
       ),
     };
     return response;

@@ -1,15 +1,17 @@
 import { SetMetadata } from '@nestjs/common';
 
+import { ResourceRole } from 'src/common/constants/rbac.enum';
+
 export const RESOURCE_ROLES_KEY = 'resourceRoles';
 export const REQUIRE_ALL_RESOURCE_ROLES_KEY = 'requireAllResourceRoles';
 
 export function ResourceRoles(
-  ...args: (string | string[] | boolean)[]
+  ...args: (ResourceRole | ResourceRole[] | boolean)[]
 ): ClassDecorator & MethodDecorator {
   let requireAll = false;
-  const roles: string[] = [];
+  const roles: ResourceRole[] = [];
 
-  for (const arg of args) {
+  args.forEach((arg) => {
     if (typeof arg === 'boolean') {
       requireAll = arg;
     } else if (Array.isArray(arg)) {
@@ -17,25 +19,21 @@ export function ResourceRoles(
     } else if (typeof arg === 'string') {
       roles.push(arg);
     }
-  }
+  });
 
   return (
     target: (new (...args: unknown[]) => unknown) | object,
     propertyKey?: string | symbol,
     descriptor?: PropertyDescriptor,
   ) => {
+    const ResourceRoles = SetMetadata(RESOURCE_ROLES_KEY, roles);
+    const RequireAll = SetMetadata(REQUIRE_ALL_RESOURCE_ROLES_KEY, requireAll);
     if (propertyKey !== undefined && descriptor !== undefined) {
-      // Method decorator
-      SetMetadata(RESOURCE_ROLES_KEY, roles)(target, propertyKey, descriptor);
-      SetMetadata(REQUIRE_ALL_RESOURCE_ROLES_KEY, requireAll)(
-        target,
-        propertyKey,
-        descriptor,
-      );
+      ResourceRoles(target, propertyKey, descriptor);
+      RequireAll(target, propertyKey, descriptor);
     } else if (typeof target === 'function') {
-      // Class decorator
-      SetMetadata(RESOURCE_ROLES_KEY, roles)(target);
-      SetMetadata(REQUIRE_ALL_RESOURCE_ROLES_KEY, requireAll)(target);
+      ResourceRoles(target);
+      RequireAll(target);
     }
   };
 }

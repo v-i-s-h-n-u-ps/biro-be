@@ -1,10 +1,10 @@
 import { dataSource } from 'database/datasource';
-
 import {
   PermissionsList,
   RolePermissionsMap,
   RolesList,
-} from 'src/authorization/rbac/constants/rbac.seed';
+} from 'database/seeds/rbac.seed';
+
 import { Permissions } from 'src/authorization/rbac/entities/permission.entity';
 import { Roles } from 'src/authorization/rbac/entities/role.entity';
 import { Role } from 'src/common/constants/rbac.enum';
