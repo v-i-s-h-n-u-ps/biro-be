@@ -1,3 +1,4 @@
+// websocket.service.ts
 import { Injectable } from '@nestjs/common';
 
 import { WebSocketNamespace } from 'src/common/constants/common.enum';
@@ -30,6 +31,7 @@ export class WebsocketService {
     event: string,
     payload: unknown,
   ) {
+    if (!userId?.trim()) return;
     const sockets = await this.presenceService.getActiveSockets(userId);
     if (sockets.length === 0) return;
     sockets.forEach((socketId) =>
@@ -46,6 +48,7 @@ export class WebsocketService {
     event: string,
     payload: unknown,
   ) {
+    if (!socketId?.trim()) return;
     this.appServerGateway.server
       .of(`/${namespace}`)
       .to(socketId)

@@ -1,3 +1,4 @@
+// realtime.service.ts
 import { InjectQueue } from '@nestjs/bull';
 import { Injectable, Logger } from '@nestjs/common';
 import { type Queue } from 'bull';
@@ -27,56 +28,27 @@ export class RealtimeService {
     private readonly queueService: RealtimeQueueService,
   ) {}
 
-  // async sendAndForgetNotification(job: RealtimeJob, delayMs = 0) {
-  //   const filteredUserIds = await this.filterMutedUsers(job.userIds, job.event);
-  //   if (!filteredUserIds.length) return;
-  //   if (job.options.emitToRoom && job.options.emitToUser) {
-  //     if (filteredUserIds.length === 0) {
-  //       job.options.emitToUser = false;
-  //     } else {
-  //       job.options.emitToRoom = false;
-  //     }
-  //   }
-
-  //   const jobOptions = { attempts: 3, backoff: 5000, delay: delayMs };
-
-  //   switch (job.namespace) {
-  //     case WebSocketNamespace.CHAT:
-  //       await this.chatQueue.add(job, jobOptions);
-  //       break;
-  //     case WebSocketNamespace.NOTIFICATIONS:
-  //       await this.notificationQueue.add(job, jobOptions);
-  //       break;
-  //     case WebSocketNamespace.RIDE:
-  //     default:
-  //       break;
-  //   }
-  // }
-
   async sendAndForgetNotification(job: RealtimeJob, delayMs = 0) {
+    if (!job.userIds?.length && !job.websocketRoomIds?.length) return;
     // 1) filter muted users
     const filteredUserIds = await this.filterMutedUsers(job.userIds, job.event);
-    if (!filteredUserIds.length) return;
-
+    if (!filteredUserIds.length && !job.options.emitToRoom) return;
     job.userIds = filteredUserIds; // narrow down recipients
     job.createdAt = Date.now();
-
-    // 2) toggle emitToRoom vs emitToUser if both set (original logic preserved)
+    // 2) toggle emitToRoom vs emitToUser if both set (original logic preserved, but clarified)
     if (job.options.emitToRoom && job.options.emitToUser) {
       if (filteredUserIds.length === 0) {
         job.options.emitToUser = false;
       } else {
-        job.options.emitToRoom = false;
+        job.options.emitToRoom = false; // Prefer user if users present
       }
     }
-
     // 3) store dedup + job body in Redis (so sweep/pending processors can access)
     const stored = await this.queueService.storeJobWithDedup(job);
-    if (!stored) {
+    if (!stored.length) {
       this.logger.debug(`Duplicate job ignored: ${job.jobId}`);
       return;
     }
-
     // 4) push to appropriate Bull queue (server busy / background processing)
     const jobOptions = {
       attempts: REALTIME_BULL_ATTEMPTS,
@@ -91,7 +63,9 @@ export class RealtimeService {
         await this.notificationQueue.add(job.event, job, jobOptions);
         break;
       default:
-        // unknown namespace — still enqueue to notifications queue
+        this.logger.warn(
+          `Unknown namespace ${job.namespace}, enqueuing to notifications`,
+        );
         await this.notificationQueue.add(job.event, job, jobOptions);
         break;
     }
@@ -101,10 +75,10 @@ export class RealtimeService {
    * Filter out users who have muted this notification type
    */
   private async filterMutedUsers(userIds: string[], type?: string) {
-    if (!type) return userIds;
-
+    if (!type) return userIds.filter((id) => id?.trim());
     const results = await Promise.all(
       userIds.map(async (uid) => {
+        if (!uid?.trim()) return null;
         const isMuted = await this.redisService.client.sismember(
           RealtimeKeys.mutedNotifications(uid),
           type,
@@ -112,7 +86,6 @@ export class RealtimeService {
         return isMuted ? null : uid;
       }),
     );
-
     return results.filter((id): id is string => !!id);
   }
 
@@ -120,11 +93,12 @@ export class RealtimeService {
    * Add a type to muted notifications
    */
   async muteNotification(userId: string, type: string, until?: Date) {
+    if (!userId?.trim() || !type?.trim()) return;
     const key = RealtimeKeys.mutedNotifications(userId);
     await this.redisService.client.sadd(key, type);
     if (until) {
       const ttl = Math.ceil((until.getTime() - Date.now()) / 1000);
-      await this.redisService.client.expire(key, ttl);
+      if (ttl > 0) await this.redisService.client.expire(key, ttl);
     }
   }
 
@@ -132,6 +106,7 @@ export class RealtimeService {
    * Remove a type from muted notifications
    */
   async unmuteNotification(userId: string, type: string) {
+    if (!userId?.trim() || !type?.trim()) return;
     const key = RealtimeKeys.mutedNotifications(userId);
     await this.redisService.client.srem(key, type);
   }

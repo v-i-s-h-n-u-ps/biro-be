@@ -1,3 +1,4 @@
+// base.processor.ts
 import { OnQueueFailed } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import { type Job } from 'bull';
@@ -8,6 +9,7 @@ import { PresenceService } from 'src/common/presence.service';
 import { FirebaseService } from 'src/firebase/services/firebase.service';
 import { UserDeviceService } from 'src/users/services/user-devices.service';
 
+import { REALTIME_DEDUP_TTL_MS } from '../constants/realtime.constants';
 import { RealtimeJob } from '../interfaces/realtime-job.interface';
 import { RealtimeQueueService } from '../services/realtime-queue.service';
 import { WebsocketService } from '../services/websocket.service';
@@ -23,16 +25,15 @@ export abstract class BaseRealtimeProcessor {
     private readonly queueService: RealtimeQueueService,
   ) {}
 
-  private async sendPush(userIds: string[], payload: MessagingPayload) {
-    if (!userIds?.length) return;
-    const devices = await this.userDeviceService.getDevicesByUserIds(userIds);
-    const tokens = devices.map((d) => d.deviceToken).filter(Boolean);
-    if (!tokens.length) return;
-    if (tokens.length === 1) {
-      await this.firebaseService.sendNotificationToDevice(tokens[0], payload);
-    } else {
-      await this.firebaseService.sendNotificationToDevices(tokens, payload);
-    }
+  private async sendPush(
+    userId: string,
+    deviceId: string,
+    payload: MessagingPayload,
+  ) {
+    const devices = await this.userDeviceService.getDevicesByUserIds([userId]);
+    const token = devices.find((d) => d.deviceToken === deviceId)?.deviceToken;
+    if (!token) return;
+    await this.firebaseService.sendNotificationToDevice(token, payload);
   }
 
   private dedupeArray<T>(arr?: T[]): T[] {
@@ -42,12 +43,17 @@ export abstract class BaseRealtimeProcessor {
   protected async emitToWs(job: RealtimeJob) {
     job.userIds = this.dedupeArray(job.userIds);
     job.websocketRoomIds = this.dedupeArray(job.websocketRoomIds);
-
     const { userIds, websocketRoomIds, event, payload, options, namespace } =
       job;
-
     // --- Emit to rooms ---
     if (options.emitToRoom && websocketRoomIds.length) {
+      // Add global dedup for rooms
+      const isNew = await this.presenceService.dedupSet(
+        job.jobId,
+        'global',
+        REALTIME_DEDUP_TTL_MS,
+      );
+      if (!isNew) return;
       for (const roomId of websocketRoomIds) {
         try {
           this.wsService.emitToRoom(namespace, roomId, event, payload);
@@ -56,31 +62,36 @@ export abstract class BaseRealtimeProcessor {
         }
       }
     }
-
     // --- Emit per-user per-device ---
     if (options.emitToUser && userIds.length) {
       for (const userId of userIds) {
         const deviceIds = await this.presenceService.getActiveDevices(userId);
-        if (!deviceIds.length) continue; // offline → push fallback
-
-        // Deduplicate per-device before emitting
+        if (!deviceIds.length) continue;
         const emittedDevices = await this.queueService.storeJobWithDedup(
           job,
           deviceIds,
         );
-        if (!emittedDevices.length) continue; // all devices already received recently
-
+        if (!emittedDevices.length) continue;
         for (const deviceId of emittedDevices) {
           await this.queueService.addPendingForDevice(userId, deviceId, job);
-
           const socketId = await this.presenceService.getSocketForDevice(
             userId,
             deviceId,
           );
           if (!socketId) continue;
-
           try {
-            this.wsService.emitToSocket(namespace, socketId, event, payload);
+            // Clone payload and add jobId for ACK
+            const emitPayload = {
+              ...job.payload,
+              wsData: { ...job.payload.wsData, jobId: job.jobId },
+            };
+            this.wsService.emitToSocket(
+              namespace,
+              socketId,
+              event,
+              emitPayload,
+            );
+            // No immediate confirm; wait for client ACK
           } catch (err) {
             this.logger.error(
               `emitToSocket failed for ${userId}:${deviceId}`,
@@ -96,9 +107,7 @@ export abstract class BaseRealtimeProcessor {
     const { userIds, event, payload, options } = job.data;
     const { data = {}, wsData: _, pushData = {}, ...notification } = payload;
     const { strategy, emitToUser } = options;
-
     const pushFinal = { ...data, ...pushData, event };
-
     try {
       switch (strategy) {
         case DeliveryStrategy.WS_ONLY: {
@@ -106,29 +115,43 @@ export abstract class BaseRealtimeProcessor {
           break;
         }
         case DeliveryStrategy.PUSH_ONLY: {
-          await this.sendPush(userIds, {
-            notification,
-            data: pushFinal,
-          });
+          for (const userId of userIds) {
+            const devices = await this.presenceService.getActiveDevices(userId);
+            for (const deviceId of devices) {
+              await this.sendPush(userId, deviceId, {
+                notification,
+                data: pushFinal,
+              });
+            }
+          }
           break;
         }
         case DeliveryStrategy.WS_THEN_PUSH: {
           await this.emitToWs(job.data);
-
-          const offlineUserIds: string[] = [];
+          const offlineDevices: { userId: string; deviceId: string }[] = [];
           if (emitToUser) {
             for (const uid of userIds) {
-              const sockets = await this.presenceService.getActiveSockets(uid);
-              if (!sockets.length) offlineUserIds.push(uid);
+              const activeDevices =
+                await this.presenceService.getActiveDevices(uid);
+              // Assume all devices for user; fetch all and filter offline
+              const allDevices =
+                await this.userDeviceService.getDevicesByUserIds([uid]);
+              for (const dev of allDevices) {
+                if (!activeDevices.includes(dev.deviceToken)) {
+                  offlineDevices.push({
+                    userId: uid,
+                    deviceId: dev.deviceToken,
+                  });
+                }
+              }
             }
           }
-          if (offlineUserIds.length) {
-            await this.sendPush(offlineUserIds, {
+          for (const { userId, deviceId } of offlineDevices) {
+            await this.sendPush(userId, deviceId, {
               notification,
               data: pushFinal,
             });
           }
-
           break;
         }
         default:

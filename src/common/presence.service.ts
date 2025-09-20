@@ -1,3 +1,4 @@
+// presence.service.ts
 import { Injectable } from '@nestjs/common';
 
 import { RealtimeJob } from 'src/realtime/interfaces/realtime-job.interface';
@@ -14,7 +15,24 @@ export class PresenceService {
   }
 
   async addConnection(userId: string, deviceId: string, socketId: string) {
-    await this.redisService.client.hset(
+    if (!userId?.trim() || !deviceId?.trim()) {
+      throw new Error('Invalid userId or deviceId');
+    }
+    // Lua for atomic add: set only if not exists or update if different socket
+    const lua = `
+    local key = KEYS[1]
+    local deviceId = ARGV[1]
+    local socketId = ARGV[2]
+    local existing = redis.call('HGET', key, deviceId)
+    if existing ~= socketId then
+      redis.call('HSET', key, deviceId, socketId)
+      return 1
+    end
+    return 0
+  `;
+    await this.redisService.client.eval(
+      lua,
+      1,
       RealtimeKeys.userDevices(userId),
       deviceId,
       socketId,
@@ -22,7 +40,20 @@ export class PresenceService {
   }
 
   async removeConnection(userId: string, deviceId: string) {
-    await this.redisService.client.hdel(
+    if (!userId?.trim() || !deviceId?.trim()) return;
+    // Lua for atomic remove: del only if exists
+    const lua = `
+    local key = KEYS[1]
+    local deviceId = ARGV[1]
+    if redis.call('HEXISTS', key, deviceId) == 1 then
+      redis.call('HDEL', key, deviceId)
+      return 1
+    end
+    return 0
+  `;
+    await this.redisService.client.eval(
+      lua,
+      1,
       RealtimeKeys.userDevices(userId),
       deviceId,
     );
@@ -32,19 +63,19 @@ export class PresenceService {
     userDevicePairs: Array<{ userId: string; deviceId: string }>,
   ) {
     const pipeline = this.redisService.client.pipeline();
-
     userDevicePairs.forEach(({ userId, deviceId }) => {
-      pipeline.hdel(RealtimeKeys.userDevices(userId), deviceId);
+      if (userId?.trim() && deviceId?.trim()) {
+        pipeline.hdel(RealtimeKeys.userDevices(userId), deviceId);
+      }
     });
-
     await pipeline.exec();
   }
 
   async getActiveDevices(userId: string): Promise<string[]> {
+    if (!userId?.trim()) return [];
     // Use HSCAN for large hashes instead of HKEYS
     const devices: string[] = [];
     let cursor = '0';
-
     do {
       const [newCursor, keys] = await this.redisService.client.hscan(
         RealtimeKeys.userDevices(userId),
@@ -55,7 +86,6 @@ export class PresenceService {
       cursor = newCursor;
       devices.push(...keys.filter((_, i) => i % 2 === 0)); // keys are at even indices
     } while (cursor !== '0');
-
     return devices;
   }
 
@@ -63,6 +93,7 @@ export class PresenceService {
     userId: string,
     deviceId: string,
   ): Promise<string | null> {
+    if (!userId?.trim() || !deviceId?.trim()) return null;
     return await this.redisService.client.hget(
       RealtimeKeys.userDevices(userId),
       deviceId,
@@ -70,6 +101,7 @@ export class PresenceService {
   }
 
   async getActiveSockets(userId: string): Promise<string[]> {
+    if (!userId?.trim()) return [];
     const res = await this.redisService.client.hvals(
       RealtimeKeys.userDevices(userId),
     );
@@ -83,40 +115,59 @@ export class PresenceService {
     jobId: string,
     ttlSeconds: number,
   ) {
-    await this.redisService.withTransaction((multi) => {
-      multi.hset(
-        RealtimeKeys.devicePendingHash(userId, deviceId),
-        jobId,
-        Date.now().toString(),
-      );
-      multi.expire(
-        RealtimeKeys.devicePendingHash(userId, deviceId),
-        ttlSeconds,
-      );
-      // also add to global zset for expiry scanning
-      const expiryTs = Date.now() + ttlSeconds * 1000;
-      multi.zadd(
-        RealtimeKeys.pendingExpiryZset(),
-        expiryTs,
-        this.getPendingJobValue(userId, deviceId, jobId),
-      );
-    });
+    if (!userId?.trim() || !deviceId?.trim() || !jobId?.trim()) return;
+    // Converted to Lua for atomicity
+    const lua = `
+      local hashKey = KEYS[1]
+      local zsetKey = KEYS[2]
+      local jobId = ARGV[1]
+      local enqueuedAt = ARGV[2]
+      local ttl = ARGV[3]
+      local expiryTs = ARGV[4]
+      local value = ARGV[5]
+      redis.call('HSET', hashKey, jobId, enqueuedAt)
+      redis.call('EXPIRE', hashKey, ttl)
+      redis.call('ZADD', zsetKey, expiryTs, value)
+    `;
+    await this.redisService.client.eval(
+      lua,
+      2,
+      RealtimeKeys.devicePendingHash(userId, deviceId),
+      RealtimeKeys.pendingExpiryZset(),
+      jobId,
+      Date.now().toString(),
+      ttlSeconds,
+      Date.now() + ttlSeconds * 1000,
+      this.getPendingJobValue(userId, deviceId, jobId),
+    );
   }
 
   async removePendingJob(userId: string, deviceId: string, jobId: string) {
-    await this.redisService.withTransaction((multi) => {
-      multi.hdel(RealtimeKeys.devicePendingHash(userId, deviceId), jobId);
-      multi.zrem(
-        RealtimeKeys.pendingExpiryZset(),
-        this.getPendingJobValue(userId, deviceId, jobId),
-      );
-    });
+    if (!userId?.trim() || !deviceId?.trim() || !jobId?.trim()) return;
+    // Converted to Lua for atomicity
+    const lua = `
+      local hashKey = KEYS[1]
+      local zsetKey = KEYS[2]
+      local jobId = ARGV[1]
+      local value = ARGV[2]
+      redis.call('HDEL', hashKey, jobId)
+      redis.call('ZREM', zsetKey, value)
+    `;
+    await this.redisService.client.eval(
+      lua,
+      2,
+      RealtimeKeys.devicePendingHash(userId, deviceId),
+      RealtimeKeys.pendingExpiryZset(),
+      jobId,
+      this.getPendingJobValue(userId, deviceId, jobId),
+    );
   }
 
   async fetchPendingJobIds(
     userId: string,
     deviceId: string,
   ): Promise<string[]> {
+    if (!userId?.trim() || !deviceId?.trim()) return [];
     const res = await this.redisService.client.hkeys(
       RealtimeKeys.devicePendingHash(userId, deviceId),
     );
@@ -127,7 +178,6 @@ export class PresenceService {
   async popExpiredPendingEntries(maxCount = 1000): Promise<string[]> {
     const zkey = RealtimeKeys.pendingExpiryZset();
     const now = Date.now();
-
     const lua = `
       local items = redis.call('ZRANGEBYSCORE', KEYS[1], 0, ARGV[1], 'LIMIT', 0, ARGV[2])
       for i=1,#items do
@@ -142,11 +192,11 @@ export class PresenceService {
       now,
       maxCount,
     );
-
     return Array.isArray(result) ? (result as string[]) : [];
   }
 
   async getJob(jobId: string): Promise<RealtimeJob | null> {
+    if (!jobId?.trim()) return null;
     const key = RealtimeKeys.jobKey(jobId);
     const raw = await this.redisService.client.get(key);
     if (!raw) return null;
@@ -154,6 +204,7 @@ export class PresenceService {
   }
 
   async storeJob(jobId: string, payload: unknown, ttlSeconds: number) {
+    if (!jobId?.trim()) return;
     await this.redisService.client.set(
       RealtimeKeys.jobKey(jobId),
       JSON.stringify(payload),
@@ -163,10 +214,12 @@ export class PresenceService {
   }
 
   async deleteJob(jobId: string) {
+    if (!jobId?.trim()) return;
     await this.redisService.client.del(RealtimeKeys.jobKey(jobId));
   }
 
   async dedupSet(jobId: string, deviceId: string, ttlMs: number) {
+    if (!jobId?.trim() || !deviceId?.trim()) return false;
     // set NX with PX; return true if set (first), false if existed
     const res = await this.redisService.client.set(
       RealtimeKeys.dedupKey(jobId, deviceId),
@@ -183,29 +236,45 @@ export class PresenceService {
     deviceIds: string[],
     ttlMs: number,
   ): Promise<Record<string, boolean>> {
-    const multiResults = await this.redisService.withTransaction((multi) => {
-      deviceIds.forEach((deviceId) => {
-        multi.set(
-          RealtimeKeys.dedupKey(jobId, deviceId),
-          '1',
-          'PX',
-          ttlMs,
-          'NX',
-        );
-      });
-    });
+    if (!jobId?.trim()) return {};
+    deviceIds = deviceIds.filter((id) => id?.trim());
+    if (!deviceIds.length) return {};
 
-    // Map results to boolean for each device
+    // Build Lua: atomic multi SET NX with PX
+    const keys: string[] = [];
+    const argv: string[] = [];
+    deviceIds.forEach((deviceId) => {
+      keys.push(RealtimeKeys.dedupKey(jobId, deviceId));
+    });
+    argv.push(ttlMs.toString());
+    argv.push(...deviceIds); // for mapping back results
+
+    const lua = `
+    local results = {}
+    for i=1,#KEYS do
+      local res = redis.call('SET', KEYS[i], '1', 'PX', ARGV[1], 'NX')
+      table.insert(results, res and 1 or 0)
+    end
+    return results
+  `;
+    const result = (await this.redisService.client.eval(
+      lua,
+      keys.length,
+      ...keys,
+      ...argv,
+    )) as number[];
+
     const dedupMap: Record<string, boolean> = {};
     deviceIds.forEach((deviceId, idx) => {
-      dedupMap[deviceId] = multiResults[idx] === 'OK';
+      dedupMap[deviceId] = result[idx] === 1;
     });
-
     return dedupMap;
   }
 
   async dedupDelete(jobId: string, deviceId?: string) {
+    if (!jobId?.trim()) return;
     if (deviceId) {
+      if (!deviceId?.trim()) return;
       await this.redisService.client.del(
         RealtimeKeys.dedupKey(jobId, deviceId),
       );

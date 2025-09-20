@@ -1,3 +1,4 @@
+// realtime.keys.ts (assuming this is the file for RealtimeKeys)
 export const RealtimeKeys = {
   userDevices: (userId: string) => `presence:user:${userId}:devices`, // hash deviceId -> socketId
   devicePendingHash: (userId: string, deviceId: string) =>

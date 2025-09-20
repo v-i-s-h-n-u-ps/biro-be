@@ -1,3 +1,4 @@
+// redis.service.ts
 import { Injectable, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as IORedis from 'ioredis';
@@ -7,14 +8,13 @@ import { createLock, IoredisAdapter, LockHandle } from 'redlock-universal';
 export class RedisService implements OnApplicationShutdown {
   client: IORedis.Redis;
   private adapter: IoredisAdapter;
-
   constructor(private readonly configService: ConfigService) {
     this.client = new IORedis.Redis(
       this.configService.get('REDIS_PORT'),
       this.configService.get('REDIS_HOST'),
       {
         db: this.configService.get('REDIS_DB_INDEX'),
-        maxRetriesPerRequest: 1,
+        maxRetriesPerRequest: 3, // Increased retries
       },
     );
     this.adapter = new IoredisAdapter(this.client);
@@ -36,7 +36,6 @@ export class RedisService implements OnApplicationShutdown {
       retryDelay: 200,
       retryAttempts: 10,
     });
-
     let handle: LockHandle | undefined;
     try {
       handle = await lock.acquire();
@@ -57,10 +56,8 @@ export class RedisService implements OnApplicationShutdown {
   ): Promise<T[]> {
     const multi = this.client.multi();
     callback(multi);
-
     const results = await multi.exec();
     if (!results) return [];
-
     // Map [Error | null, unknown] to unknown[] (throw if error)
     return results.map(([err, res]) => {
       if (err) throw err;

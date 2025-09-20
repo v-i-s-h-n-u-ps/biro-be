@@ -1,4 +1,4 @@
-// src/realtime/processors/pending-sweep.processor.ts
+// pending-sweep.processor.ts
 import { Process, Processor } from '@nestjs/bull';
 
 import { QueueName } from 'src/common/constants/common.enum';
@@ -8,7 +8,7 @@ import { UserDeviceService } from 'src/users/services/user-devices.service';
 
 import { RealtimeQueueService } from '../services/realtime-queue.service';
 
-@Processor(QueueName.PRESENCE_SWEEP) // this queue is used only for the repeatable sweep job
+@Processor(QueueName.PENDING_SWEEP) // this queue is used only for the repeatable sweep job
 export class PendingSweepProcessor {
   private readonly sweepLockKey = 'pending:sweep:lock';
   private readonly lockTTL = 5000;
@@ -26,13 +26,15 @@ export class PendingSweepProcessor {
       this.sweepLockKey,
       async () => {
         await this.queueService.sweepExpiredPendingAndFallback(
-          async (userId, jobPayload) => {
+          async (userId, deviceId, jobPayload) => {
+            // Added deviceId
             const devices = await this.userDeviceService.getDevicesByUserIds([
               userId,
             ]);
-            const tokens = devices.map((d) => d.deviceToken).filter(Boolean);
-            if (!tokens.length) return;
-
+            const token = devices.find(
+              (d) => d.deviceToken === deviceId,
+            )?.deviceToken;
+            if (!token) return;
             const {
               userIds: _userIds,
               event,
@@ -44,25 +46,12 @@ export class PendingSweepProcessor {
               },
               options: _options,
             } = jobPayload;
-
             const pushFinal = { ...data, ...pushData, event };
-
             const payload = {
               notification,
               data: pushFinal,
             };
-
-            if (tokens.length === 1) {
-              await this.firebaseService.sendNotificationToDevice(
-                tokens[0],
-                payload,
-              );
-            } else {
-              await this.firebaseService.sendNotificationToDevices(
-                tokens,
-                payload,
-              );
-            }
+            await this.firebaseService.sendNotificationToDevice(token, payload);
           },
         );
       },
