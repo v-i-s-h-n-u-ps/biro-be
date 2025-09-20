@@ -17,12 +17,14 @@ export interface RealtimePayload {
 }
 
 export interface RealtimeJob {
+  jobId: string;
   userIds: string[];
   websocketRoomIds: string[];
   event: NotificationEvents;
   namespace: WebSocketNamespace;
   payload: RealtimePayload;
   options: JobDefaults;
+  createdAt?: number;
 }
 
 export interface JobDefaults {

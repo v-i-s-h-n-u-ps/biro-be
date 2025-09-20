@@ -8,6 +8,7 @@ import { FirebaseService } from 'src/firebase/services/firebase.service';
 import { UserDeviceService } from 'src/users/services/user-devices.service';
 
 import { RealtimeJob } from '../interfaces/realtime-job.interface';
+import { RealtimeQueueService } from '../services/realtime-queue.service';
 import { WebsocketService } from '../services/websocket.service';
 
 import { BaseRealtimeProcessor } from './base.processor';
@@ -20,8 +21,15 @@ export class AppNotificationProcessor extends BaseRealtimeProcessor {
     presenceService: PresenceService,
     firebaseService: FirebaseService,
     userDeviceService: UserDeviceService,
+    queueService: RealtimeQueueService,
   ) {
-    super(wsService, presenceService, firebaseService, userDeviceService);
+    super(
+      wsService,
+      presenceService,
+      firebaseService,
+      userDeviceService,
+      queueService,
+    );
   }
 
   @Process()

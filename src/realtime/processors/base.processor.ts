@@ -9,6 +9,7 @@ import { FirebaseService } from 'src/firebase/services/firebase.service';
 import { UserDeviceService } from 'src/users/services/user-devices.service';
 
 import { RealtimeJob } from '../interfaces/realtime-job.interface';
+import { RealtimeQueueService } from '../services/realtime-queue.service';
 import { WebsocketService } from '../services/websocket.service';
 
 export abstract class BaseRealtimeProcessor {
@@ -19,38 +20,75 @@ export abstract class BaseRealtimeProcessor {
     private readonly presenceService: PresenceService,
     private readonly firebaseService: FirebaseService,
     private readonly userDeviceService: UserDeviceService,
+    private readonly queueService: RealtimeQueueService,
   ) {}
 
   private async sendPush(userIds: string[], payload: MessagingPayload) {
-    if (!userIds.length) return;
+    if (!userIds?.length) return;
     const devices = await this.userDeviceService.getDevicesByUserIds(userIds);
     const tokens = devices.map((d) => d.deviceToken).filter(Boolean);
-    if (tokens.length) {
-      if (tokens.length === 1) {
-        await this.firebaseService.sendNotificationToDevice(tokens[0], payload);
-      } else {
-        await this.firebaseService.sendNotificationToDevices(tokens, payload);
-      }
+    if (!tokens.length) return;
+    if (tokens.length === 1) {
+      await this.firebaseService.sendNotificationToDevice(tokens[0], payload);
+    } else {
+      await this.firebaseService.sendNotificationToDevices(tokens, payload);
     }
   }
 
-  private async emitToWs(job: RealtimeJob) {
-    const { userIds, event, payload, websocketRoomIds, options, namespace } =
-      job;
-    const { data = {}, wsData = {}, pushData: _, ...notification } = payload;
-    const wsDataFinal = { ...data, ...wsData, ...notification };
+  private dedupeArray<T>(arr?: T[]): T[] {
+    return arr ? Array.from(new Set(arr)) : [];
+  }
 
-    if (websocketRoomIds.length && options.emitToRoom) {
-      websocketRoomIds.forEach((roomId) =>
-        this.wsService.emitToRoom(namespace, roomId, event, wsDataFinal),
-      );
+  protected async emitToWs(job: RealtimeJob) {
+    job.userIds = this.dedupeArray(job.userIds);
+    job.websocketRoomIds = this.dedupeArray(job.websocketRoomIds);
+
+    const { userIds, websocketRoomIds, event, payload, options, namespace } =
+      job;
+
+    // --- Emit to rooms ---
+    if (options.emitToRoom && websocketRoomIds.length) {
+      for (const roomId of websocketRoomIds) {
+        try {
+          this.wsService.emitToRoom(namespace, roomId, event, payload);
+        } catch (err) {
+          this.logger.error(`emitToRoom failed for room ${roomId}`, err);
+        }
+      }
     }
+
+    // --- Emit per-user per-device ---
     if (options.emitToUser && userIds.length) {
-      await Promise.all(
-        userIds.map((uid) =>
-          this.wsService.emitToUser(namespace, uid, event, wsDataFinal),
-        ),
-      );
+      for (const userId of userIds) {
+        const deviceIds = await this.presenceService.getActiveDevices(userId);
+        if (!deviceIds.length) continue; // offline → push fallback
+
+        // Deduplicate per-device before emitting
+        const emittedDevices = await this.queueService.storeJobWithDedup(
+          job,
+          deviceIds,
+        );
+        if (!emittedDevices.length) continue; // all devices already received recently
+
+        for (const deviceId of emittedDevices) {
+          await this.queueService.addPendingForDevice(userId, deviceId, job);
+
+          const socketId = await this.presenceService.getSocketForDevice(
+            userId,
+            deviceId,
+          );
+          if (!socketId) continue;
+
+          try {
+            this.wsService.emitToSocket(namespace, socketId, event, payload);
+          } catch (err) {
+            this.logger.error(
+              `emitToSocket failed for ${userId}:${deviceId}`,
+              err,
+            );
+          }
+        }
+      }
     }
   }
 
@@ -94,6 +132,7 @@ export abstract class BaseRealtimeProcessor {
           break;
         }
         default:
+          await this.emitToWs(job.data);
           break;
       }
     } catch (err) {

@@ -34,9 +34,21 @@ export class WebsocketService {
     if (sockets.length === 0) return;
     sockets.forEach((socketId) =>
       this.appServerGateway.server
-        .of(namespace)
+        .of(`/${namespace}`)
         .to(socketId)
         .emit(event, payload),
     );
+  }
+
+  emitToSocket(
+    namespace: WebSocketNamespace,
+    socketId: string,
+    event: string,
+    payload: unknown,
+  ) {
+    this.appServerGateway.server
+      .of(`/${namespace}`)
+      .to(socketId)
+      .emit(event, payload);
   }
 }

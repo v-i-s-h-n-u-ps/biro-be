@@ -7,6 +7,7 @@ export enum Gender {
 export enum QueueName {
   NOTIFICATIONS = 'notifications',
   CHAT = 'chat',
+  PRESENCE_SWEEP = 'pending-sweep',
 }
 
 export enum WebSocketNamespace {

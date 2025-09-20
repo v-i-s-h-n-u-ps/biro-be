@@ -16,6 +16,8 @@ import {
 import { PresenceService } from 'src/common/presence.service';
 import { type PresenceSocket } from 'src/common/types/socket.types';
 
+import { RealtimeQueueService } from '../services/realtime-queue.service';
+
 @WebSocketGateway({
   cors: { origin: '*', methods: ['GET', 'POST'] },
 })
@@ -25,7 +27,10 @@ export class AppServerGateway
   @WebSocketServer()
   server: Server;
 
-  constructor(private readonly presenceService: PresenceService) {}
+  constructor(
+    private readonly presenceService: PresenceService,
+    private readonly queueService: RealtimeQueueService,
+  ) {}
 
   private extractUserId(client: Socket): string | null {
     const auth = client.handshake.auth || {};
@@ -38,12 +43,26 @@ export class AppServerGateway
     const userId = this.extractUserId(client);
     if (!userId) return;
 
-    await this.presenceService.addConnection(
+    const deviceId = client.data.deviceId || 'unknown-device';
+    await this.presenceService.addConnection(userId, deviceId, client.id);
+    this.server
+      .to(`user:${userId}`)
+      .emit(NotificationEvents.NOTIFICATION_USER_ONLINE, { userId });
+
+    await this.queueService.flushPendingForDevice(
       userId,
-      client.data.deviceId || 'unknown-device',
-      client.id,
+      client.data.deviceId,
+      ({ payload, namespace, event }) => {
+        const {
+          data = {},
+          wsData = {},
+          pushData: _,
+          ...notification
+        } = payload;
+        const wsDataFinal = { ...data, ...wsData, ...notification };
+        this.server.of(`/${namespace}`).to(client.id).emit(event, wsDataFinal);
+      },
     );
-    this.server.emit(NotificationEvents.NOTIFICATION_USER_ONLINE, { userId });
   }
 
   async handleDisconnect(client: PresenceSocket) {
@@ -52,9 +71,14 @@ export class AppServerGateway
 
     if (userId && deviceId) {
       await this.presenceService.removeConnection(userId, deviceId);
-      this.server
-        .to(`user:${userId}`)
-        .emit(NotificationEvents.NOTIFICATION_USER_OFFLINE, { userId });
+
+      // Only emit offline if no devices remain
+      const activeDevices = await this.presenceService.getActiveDevices(userId);
+      if (activeDevices.length === 0) {
+        this.server
+          .to(`user:${userId}`)
+          .emit(NotificationEvents.NOTIFICATION_USER_OFFLINE, { userId });
+      }
     }
   }
 

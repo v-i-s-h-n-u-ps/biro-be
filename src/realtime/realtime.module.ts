@@ -1,5 +1,6 @@
-import { BullModule } from '@nestjs/bull';
-import { Module } from '@nestjs/common';
+import { BullModule, InjectQueue } from '@nestjs/bull';
+import { Module, OnModuleInit } from '@nestjs/common';
+import { type Queue } from 'bull';
 
 import { QueueName } from 'src/common/constants/common.enum';
 import { PresenceService } from 'src/common/presence.service';
@@ -12,7 +13,10 @@ import { AppServerGateway } from './gateways/app-server.gateway';
 import { ChatGateway } from './gateways/chats.gateway';
 import { RideGateway } from './gateways/rides.gateway';
 import { AppNotificationProcessor } from './processors/app-notification.processor';
+import { ChatProcessor } from './processors/chat.processor';
+import { PendingSweepProcessor } from './processors/pending-sweep.processor';
 import { RealtimeService } from './services/realtime.service';
+import { RealtimeQueueService } from './services/realtime-queue.service';
 import { WebsocketService } from './services/websocket.service';
 
 const defaultJobOptions = {
@@ -32,19 +36,40 @@ const defaultJobOptions = {
     BullModule.registerQueue(
       { name: QueueName.NOTIFICATIONS, defaultJobOptions },
       { name: QueueName.CHAT, defaultJobOptions },
+      { name: QueueName.PRESENCE_SWEEP },
     ),
   ],
   providers: [
     RedisService,
     PresenceService,
     RealtimeService,
+    RealtimeQueueService,
     WebsocketService,
     AppServerGateway,
     ChatGateway,
     RideGateway,
     RideLocationService,
     AppNotificationProcessor,
+    ChatProcessor,
+    PendingSweepProcessor,
   ],
   exports: [RealtimeService, WebsocketService],
 })
-export class RealtimeModule {}
+export class RealtimeModule implements OnModuleInit {
+  constructor(
+    @InjectQueue(QueueName.PRESENCE_SWEEP)
+    private readonly pendingSweepQueue: Queue,
+  ) {}
+
+  async onModuleInit() {
+    await this.pendingSweepQueue.add(
+      'sweep',
+      {},
+      {
+        repeat: { every: 1000 },
+        removeOnComplete: true,
+        removeOnFail: true,
+      },
+    );
+  }
+}

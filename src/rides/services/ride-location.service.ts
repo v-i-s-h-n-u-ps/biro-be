@@ -67,7 +67,8 @@ export class RideLocationService {
   }
 
   async isUserOnline(userId: string) {
-    return this.presenceService.isOnline(userId);
+    const devices = await this.presenceService.getActiveDevices(userId);
+    return devices.length > 0;
   }
 
   async cleanupRide(rideId: string) {

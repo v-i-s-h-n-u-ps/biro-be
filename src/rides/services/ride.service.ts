@@ -50,6 +50,9 @@ export class RideService {
     event: NotificationEvents;
   } & RealtimePayload) {
     await this.realtimeService.sendAndForgetNotification({
+      jobId: `notif-${event}-${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2, 8)}`,
       userIds,
       event,
       namespace: WebSocketNamespace.RIDE,
