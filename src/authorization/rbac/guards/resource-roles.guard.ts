@@ -17,6 +17,7 @@ import {
   RESOURCE_ROLES_KEY,
   ResourceRoleRequirement,
 } from '../decorators/resource-roles.decorator';
+import { getUser } from '../utils/auth-guard.util';
 
 type ForeignKeyOf<T, V> = {
   [K in keyof Partial<T> & string]: T[K] extends V ? K : never;
@@ -52,10 +53,10 @@ export abstract class ResourceRolesGuard<
     if (!requirements.length) return true;
 
     const req = context.switchToHttp().getRequest<Request>();
-    if (!req.user) throw new ForbiddenException('User not authenticated');
-    if (req.user.username === 'superuser') return true;
+    const user = getUser(context);
+    if (user.username === 'superuser') return true;
 
-    const userId = req.user.id;
+    const userId = user.id;
     const resourceId = this.getResourceId(req);
     const alias = this.relationRepo.metadata.name.toLowerCase();
 

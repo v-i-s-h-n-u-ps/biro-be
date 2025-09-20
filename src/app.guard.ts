@@ -1,8 +1,8 @@
-// src/app.guard.ts
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
 import { FirebaseAuthGuard } from './authentication/guards/firebase-auth.guard';
+import { WsFirebaseAuthGuard } from './authentication/guards/ws-firebase-auth.guard';
 import { PermissionsGuard } from './authorization/rbac/guards/permissions.guard';
 import { RolesGuard } from './authorization/rbac/guards/roles.guard';
 import { IS_PUBLIC_KEY } from './common/decorators/public.decorator';
@@ -12,6 +12,7 @@ export class AppGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly authGuard: FirebaseAuthGuard,
+    private readonly wsAuthGuard: WsFirebaseAuthGuard,
     private readonly rolesGuard: RolesGuard,
     private readonly permissionsGuard: PermissionsGuard,
   ) {}
@@ -23,14 +24,15 @@ export class AppGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
-    const isAuthenticated = await this.authGuard.canActivate(context);
-    if (!isAuthenticated) return false;
+    const type = context.getType();
+    if (type !== 'http' && type !== 'ws') return true;
 
-    const hasRole = this.rolesGuard.canActivate(context);
-    if (!hasRole) return false;
+    const authGuard = type === 'http' ? this.authGuard : this.wsAuthGuard;
+    if (!authGuard) return true;
 
-    const hasPermission = this.permissionsGuard.canActivate(context);
-    if (!hasPermission) return false;
+    if (!(await authGuard.canActivate(context))) return false;
+    if (!this.rolesGuard.canActivate(context)) return false;
+    if (!this.permissionsGuard.canActivate(context)) return false;
 
     return true;
   }

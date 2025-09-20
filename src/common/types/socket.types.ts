@@ -1,8 +1,11 @@
 import { DefaultEventsMap, Socket } from 'socket.io';
 
+import { User } from 'src/users/entities/users.entity';
+
 export interface PresenceSocketData {
   userId?: string;
   deviceId?: string;
+  user?: User;
 }
 
 // Define the handshake auth structure

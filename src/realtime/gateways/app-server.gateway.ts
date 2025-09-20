@@ -1,4 +1,3 @@
-import { UseGuards } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -10,7 +9,6 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 
-import { WsFirebaseAuthGuard } from 'src/authentication/guards/ws-firebase-auth.guard';
 import {
   ClientEvents,
   NotificationEvents,
@@ -21,7 +19,6 @@ import { type PresenceSocket } from 'src/common/types/socket.types';
 @WebSocketGateway({
   cors: { origin: '*', methods: ['GET', 'POST'] },
 })
-@UseGuards(WsFirebaseAuthGuard)
 export class AppServerGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {

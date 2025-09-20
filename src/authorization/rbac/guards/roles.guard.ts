@@ -8,12 +8,12 @@ import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 
 import { Role } from 'src/common/constants/rbac.enum';
-import { User } from 'src/users/entities/users.entity';
 
 import {
   REQUIRE_ALL_ROLES_KEY,
   ROLES_KEY,
 } from '../decorators/roles.decorator';
+import { getUser } from '../utils/auth-guard.util';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -24,7 +24,6 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-
     const requireAll =
       this.reflector.getAllAndOverride<boolean>(REQUIRE_ALL_ROLES_KEY, [
         context.getHandler(),
@@ -33,21 +32,17 @@ export class RolesGuard implements CanActivate {
 
     if (!requiredRoles || requiredRoles.length === 0) return true;
 
-    const request = context.switchToHttp().getRequest<Request>();
-    const user: User | undefined = request.user;
-
-    if (!user) throw new ForbiddenException('User not authenticated');
-
+    const user = getUser(context);
     if (user.username === 'superuser') return true;
 
     const userRoles = user.roles.map((r) => r.id);
 
-    const hasRole = requireAll
+    const hasRoles = requireAll
       ? requiredRoles.every((r) => userRoles.includes(r))
       : requiredRoles.some((r) => userRoles.includes(r));
 
-    if (!hasRole) {
-      throw new ForbiddenException('You do not have enough permissions');
+    if (!hasRoles) {
+      throw new ForbiddenException('You do not have the required roles');
     }
 
     return true;

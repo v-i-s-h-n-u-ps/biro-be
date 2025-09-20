@@ -1,4 +1,3 @@
-import { UseGuards } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -6,7 +5,6 @@ import {
   WebSocketGateway,
 } from '@nestjs/websockets';
 
-import { WsFirebaseAuthGuard } from 'src/authentication/guards/ws-firebase-auth.guard';
 import { WebSocketNamespace } from 'src/common/constants/common.enum';
 import { ClientEvents } from 'src/common/constants/notification-events.enum';
 import { type PresenceSocket } from 'src/common/types/socket.types';
@@ -15,7 +13,6 @@ import { type PresenceSocket } from 'src/common/types/socket.types';
   cors: { origin: '*' },
   namespace: WebSocketNamespace.CHAT,
 })
-@UseGuards(WsFirebaseAuthGuard)
 export class ChatGateway {
   constructor() {}
 

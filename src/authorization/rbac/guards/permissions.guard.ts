@@ -5,15 +5,14 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Request } from 'express';
 
 import { Permission } from 'src/common/constants/rbac.enum';
-import { User } from 'src/users/entities/users.entity';
 
 import {
   PERMISSIONS_KEY,
   REQUIRE_ALL_PERMISSIONS_KEY,
 } from '../decorators/permission.decorator';
+import { getUser } from '../utils/auth-guard.util';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -33,11 +32,7 @@ export class PermissionsGuard implements CanActivate {
 
     if (!requiredPermissions || requiredPermissions.length === 0) return true;
 
-    const request = context.switchToHttp().getRequest<Request>();
-    const user: User | undefined = request.user;
-
-    if (!user) throw new ForbiddenException('User not authenticated');
-
+    const user = getUser(context);
     if (user.username === 'superuser') return true;
 
     const userPermissions = user.roles.flatMap((r) =>
