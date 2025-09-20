@@ -5,6 +5,7 @@ import { type Request } from 'express';
 import { Repository } from 'typeorm';
 
 import { ResourceRolesGuard } from 'src/authorization/rbac/guards/resource-roles.guard';
+import { ResourceType } from 'src/common/constants/common.enum';
 
 import { RideParticipant } from '../entities/ride-participants.entity';
 import { Ride } from '../entities/rides.entity';
@@ -15,6 +16,7 @@ export class RideRolesGuard extends ResourceRolesGuard<RideParticipant, Ride> {
     reflector: Reflector,
     @InjectRepository(RideParticipant)
     protected readonly relationRepo: Repository<RideParticipant>,
+    protected readonly resourceType = ResourceType.RIDE,
   ) {
     super(reflector, 'participant', 'ride', 'participantRole');
   }

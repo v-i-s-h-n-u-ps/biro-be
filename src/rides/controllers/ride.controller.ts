@@ -18,7 +18,7 @@ import { type Request } from 'express';
 
 import { ResourceRoles } from 'src/authorization/rbac/decorators/resource-roles.decorator';
 import { Roles } from 'src/authorization/rbac/decorators/roles.decorator';
-import { RideStatus } from 'src/common/constants/common.enum';
+import { ResourceType, RideStatus } from 'src/common/constants/common.enum';
 import { ResourceRole, Role } from 'src/common/constants/rbac.enum';
 import { UserBasicDetailsDto } from 'src/common/dtos/user-basic-details.dto';
 
@@ -45,7 +45,10 @@ export class RideController {
   @Patch(':rideId')
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   @Roles(Role.ADMIN)
-  @ResourceRoles(ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR)
+  @ResourceRoles({
+    resource: ResourceType.RIDE,
+    roles: [ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR],
+  })
   updateRide(
     @Param('rideId', ParseUUIDPipe) rideId: string,
     @Body() data: UpdateRideDto,
@@ -63,7 +66,10 @@ export class RideController {
 
   @Patch(':rideId/participants/:participantId/accept')
   @Roles(Role.ADMIN)
-  @ResourceRoles(ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR)
+  @ResourceRoles({
+    resource: ResourceType.RIDE,
+    roles: [ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR],
+  })
   acceptParticipant(
     @Param('rideId', ParseUUIDPipe) rideId: string,
     @Param('participantId', ParseUUIDPipe) participantId: string,
@@ -85,14 +91,20 @@ export class RideController {
 
   @Patch(':rideId/cancel')
   @Roles(Role.ADMIN)
-  @ResourceRoles(ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR)
+  @ResourceRoles({
+    resource: ResourceType.RIDE,
+    roles: [ResourceRole.RIDE_OWNER],
+  })
   cancelRide(@Param('rideId', ParseUUIDPipe) rideId: string) {
     return this.rideService.cancelOrCompleteRide(rideId, RideStatus.CANCELLED);
   }
 
   @Patch(':rideId/complete')
   @Roles(Role.ADMIN)
-  @ResourceRoles(ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR)
+  @ResourceRoles({
+    resource: ResourceType.RIDE,
+    roles: [ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR],
+  })
   completeRide(@Param('rideId', ParseUUIDPipe) rideId: string) {
     return this.rideService.cancelOrCompleteRide(rideId, RideStatus.COMPLETED);
   }

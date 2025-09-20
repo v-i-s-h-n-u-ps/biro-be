@@ -49,3 +49,9 @@ export enum DeliveryStrategy {
   PUSH_ONLY = 'push_only',
   WS_THEN_PUSH = 'ws_then_push',
 }
+
+export enum ResourceType {
+  RIDE = 'ride',
+  CHAT = 'chat',
+  ORGANIZATION = 'organization',
+}
