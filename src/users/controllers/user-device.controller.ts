@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Post, Req } from '@nestjs/common';
+import { Body, Controller, Patch, Post, Req } from '@nestjs/common';
 import { type Request } from 'express';
 
 import { DeregisterDeviceDto } from '../dtos/deregister-device.dto';
@@ -15,12 +15,12 @@ export class UserDeviceController {
     return { success: true, device };
   }
 
-  @Delete('deregister')
+  @Patch('deregister')
   async deregisterDevice(
     @Req() req: Request,
     @Body() dto: DeregisterDeviceDto,
   ) {
-    await this.userDeviceService.deregisterDevice(req.user, dto);
+    await this.userDeviceService.deregisterDevice(req.user, dto.deviceToken);
     return { success: true };
   }
 }

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Headers,
   HttpCode,
   HttpStatus,
   Post,
@@ -11,13 +12,19 @@ import { plainToInstance } from 'class-transformer';
 import { type Request } from 'express';
 
 import { Public } from 'src/common/decorators/public.decorator';
+import { SkipInterceptor } from 'src/common/decorators/skip-interceptor.decorator';
 import { UserResponseDto } from 'src/common/dtos/user-response.dto';
+import { RegisterDeviceDto } from 'src/users/dtos/register-device.dto';
+import { UserDeviceService } from 'src/users/services/user-devices.service';
 
 import { AuthenticationService } from '../services/authentication.service';
 
 @Controller({ path: 'auth', version: '1' })
 export class AuthenticationController {
-  constructor(private readonly authService: AuthenticationService) {}
+  constructor(
+    private readonly authService: AuthenticationService,
+    private readonly userDeviceService: UserDeviceService,
+  ) {}
 
   @Post('login')
   @Public()
@@ -31,7 +38,21 @@ export class AuthenticationController {
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@Req() req: Request) {
+  @SkipInterceptor()
+  async logout(
+    @Req() req: Request,
+    @Headers('x-device-info') deviceInfo: string,
+  ) {
+    const device = plainToInstance(RegisterDeviceDto, JSON.parse(deviceInfo), {
+      exposeDefaultValues: true,
+      enableImplicitConversion: true,
+    });
+    if (device.deviceToken) {
+      await this.userDeviceService.deregisterDevice(
+        req.user,
+        device.deviceToken,
+      );
+    }
     await this.authService.logout(req.user.firebaseUid);
   }
 }

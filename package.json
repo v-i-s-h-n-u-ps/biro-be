@@ -21,7 +21,7 @@
     "check:types": "tsc",
     "migrate:generate": "npx ts-node -r tsconfig-paths/register ./scripts/generate-migration.ts",
     "migrate:run": "ts-node -r tsconfig-paths/register ./scripts/run-migrations.ts",
-    "migrate:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d ./config/datasource.ts",
+    "migrate:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d ./database/datasource.ts",
     "seed:run": "ts-node -r tsconfig-paths/register ./scripts/seed.ts",
     "migrate:run:prod": "NODE_ENV=production node ./dist/scripts/migrations.js",
     "seed:run:prod": "NODE_ENV=production node ./dist/scripts/seed.js",

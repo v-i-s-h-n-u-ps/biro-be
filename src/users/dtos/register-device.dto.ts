@@ -1,16 +1,50 @@
-import { IsIn, IsString, Length } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsOptional, IsString, Length } from 'class-validator';
 
 export class RegisterDeviceDto {
   @IsString()
-  @Length(10, 512)
   deviceToken: string;
 
-  @IsIn(['ios', 'android', 'web'])
+  @IsString()
   platform: 'ios' | 'android' | 'web';
 
+  @IsOptional()
   @IsString()
-  name?: string;
+  @Length(1, 50)
+  osName: string | null = null;
 
+  @IsOptional()
   @IsString()
-  appVersion?: string;
+  @Length(1, 50)
+  osVersion: string | null = null;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  appVersion: string | null = null;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  name: string | null = null;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  model: string | null = null;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  manufacturer: string | null = null;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  isEmulator: boolean = false;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  isActive: boolean = true;
 }

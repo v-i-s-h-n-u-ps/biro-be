@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -24,16 +25,37 @@ export class UserDevice {
   platform: 'ios' | 'android' | 'web';
 
   @Column({ name: 'os_version', type: 'varchar', length: 50, nullable: true })
-  osVersion?: string;
+  osVersion: string;
 
-  @Column({ nullable: true })
-  appVersion?: string;
+  @Column({ name: 'os_name', type: 'varchar', length: 50, nullable: true })
+  osName?: string;
+
+  @Column({ nullable: true, name: 'app_version', type: 'varchar', length: 50 })
+  appVersion: string;
 
   @Column({ name: 'name', type: 'varchar', length: 100, nullable: true })
-  name?: string;
+  name: string;
+
+  @Column({ name: 'model', type: 'varchar', length: 100, nullable: true })
+  model: string;
+
+  @Column({
+    name: 'manufacturer',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  manufacturer: string;
+
+  @Column({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean;
+
+  @Column({ name: 'is_emulator', type: 'boolean', default: false })
+  isEmulator: boolean;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
+  @Index()
   user: User;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })

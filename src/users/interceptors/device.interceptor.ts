@@ -4,73 +4,67 @@ import {
   Injectable,
   NestInterceptor,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core/services/reflector.service';
 import { InjectRepository } from '@nestjs/typeorm';
+import { plainToInstance } from 'class-transformer';
+import { validateSync } from 'class-validator';
 import { type Request } from 'express';
-import { Observable } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import { Repository } from 'typeorm';
 
+import { SKIP_INTERCEPTOR_KEY } from 'src/common/decorators/skip-interceptor.decorator';
 import { UserDevice } from 'src/users/entities/user-devices.entity';
 import { User } from 'src/users/entities/users.entity';
+
+import { RegisterDeviceDto } from '../dtos/register-device.dto';
 
 @Injectable()
 export class DeviceInterceptor implements NestInterceptor {
   constructor(
     @InjectRepository(UserDevice)
     private readonly userDeviceRepo: Repository<UserDevice>,
+    private reflector: Reflector,
   ) {}
 
-  async intercept(
-    context: ExecutionContext,
-    next: CallHandler,
-  ): Promise<Observable<unknown>> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const skip = this.reflector.get<boolean>(
+      SKIP_INTERCEPTOR_KEY,
+      context.getHandler(),
+    );
+    if (skip) return next.handle();
+
     const request = context.switchToHttp().getRequest<Request>();
-    const user: User | undefined = request.user; // Only defined if authenticated
+    const user: User | undefined = request.user;
+    if (!user) return next.handle();
 
-    const deviceToken = request.headers['x-device-token'] as string;
-    const platform = request.headers['x-platform'] as 'ios' | 'android' | 'web';
-    const osVersion = request.headers['x-os-version'] as string;
-    const appVersion = request.headers['x-app-version'] as string;
-    const deviceName = request.headers['x-device-name'] as string;
+    const header = request.headers['x-device-info'];
+    if (!header) return next.handle();
 
-    if (user && deviceToken && platform) {
-      let device = await this.userDeviceRepo.findOne({
-        where: { deviceToken },
+    let dto: RegisterDeviceDto;
+    try {
+      if (typeof header !== 'string') return next.handle();
+      dto = plainToInstance(RegisterDeviceDto, JSON.parse(header), {
+        exposeDefaultValues: true,
+        enableImplicitConversion: true,
       });
-
-      if (!device) {
-        device = this.userDeviceRepo.create({
-          user,
-          deviceToken,
-          platform,
-          appVersion,
-          name: deviceName,
-        });
-        await this.userDeviceRepo.save(device);
-      } else if (device.user?.id === user.id) {
-        // Update only if something changed
-        let updated = false;
-        if (device.appVersion !== appVersion) {
-          device.appVersion = appVersion;
-          updated = true;
-        }
-        if (device.platform !== platform) {
-          device.platform = platform;
-          updated = true;
-        }
-        if (device.osVersion !== osVersion) {
-          device.osVersion = osVersion;
-          updated = true;
-        }
-        if (device.name !== deviceName) {
-          device.name = deviceName;
-          updated = true;
-        }
-        if (updated) {
-          await this.userDeviceRepo.save(device);
-        }
+      const errors = validateSync(dto);
+      if (errors.length) {
+        console.warn('Invalid X-Device-Info header:', errors);
+        return next.handle();
       }
+    } catch (err) {
+      console.warn('Invalid X-Device-Info header or validation failed:', err);
+      return next.handle();
     }
 
-    return next.handle();
+    return next.handle().pipe(
+      tap({
+        next: () => {
+          this.userDeviceRepo
+            .upsert({ ...dto, user }, ['deviceToken'])
+            .catch(console.warn);
+        },
+      }),
+    );
   }
 }
