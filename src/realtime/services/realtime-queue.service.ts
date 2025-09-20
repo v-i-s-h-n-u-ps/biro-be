@@ -122,18 +122,26 @@ export class RealtimeQueueService {
   // Called when client ACKs a job
   async confirmDelivery(jobId: string, userId: string, deviceId: string) {
     if (!jobId?.trim() || !userId?.trim() || !deviceId?.trim()) return;
-    await this.presence.removePendingJob(userId, deviceId, jobId);
-    const deviceKey = `${userId}:${deviceId}`;
-    await this.redis.client.srem(RealtimeKeys.pendingMapping(jobId), deviceKey);
-    const remaining = await this.redis.client.scard(
-      RealtimeKeys.pendingMapping(jobId),
+    await this.redis.withLock(
+      `pending:${userId}:${deviceId}:${jobId}`,
+      async () => {
+        await this.presence.removePendingJob(userId, deviceId, jobId);
+        const deviceKey = `${userId}:${deviceId}`;
+        await this.redis.client.srem(
+          RealtimeKeys.pendingMapping(jobId),
+          deviceKey,
+        );
+        const remaining = await this.redis.client.scard(
+          RealtimeKeys.pendingMapping(jobId),
+        );
+        if (remaining === 0) {
+          await this.presence.deleteJob(jobId);
+          await this.presence.dedupDelete(jobId); // global cleanup
+        } else {
+          await this.presence.dedupDelete(jobId, deviceId);
+        }
+      },
     );
-    if (remaining === 0) {
-      await this.presence.deleteJob(jobId);
-      await this.presence.dedupDelete(jobId); // global cleanup
-    } else {
-      await this.presence.dedupDelete(jobId, deviceId);
-    }
   }
 
   // Sweep expired pending entries: find expired zset entries and trigger push fallback for them

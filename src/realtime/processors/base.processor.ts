@@ -67,10 +67,12 @@ export abstract class BaseRealtimeProcessor {
       for (const userId of userIds) {
         const deviceIds = await this.presenceService.getActiveDevices(userId);
         if (!deviceIds.length) continue;
-        const emittedDevices = await this.queueService.storeJobWithDedup(
-          job,
+        const dedupMap = await this.presenceService.dedupMultiSet(
+          job.jobId,
           deviceIds,
+          REALTIME_DEDUP_TTL_MS,
         );
+        const emittedDevices = deviceIds.filter((id) => dedupMap[id]);
         if (!emittedDevices.length) continue;
         for (const deviceId of emittedDevices) {
           await this.queueService.addPendingForDevice(userId, deviceId, job);
@@ -79,24 +81,45 @@ export abstract class BaseRealtimeProcessor {
             deviceId,
           );
           if (!socketId) continue;
+          const emitPayload = {
+            ...payload,
+            wsData: { ...payload.wsData, jobId: job.jobId },
+          };
           try {
-            // Clone payload and add jobId for ACK
-            const emitPayload = {
-              ...job.payload,
-              wsData: { ...job.payload.wsData, jobId: job.jobId },
-            };
             this.wsService.emitToSocket(
               namespace,
               socketId,
               event,
               emitPayload,
             );
-            // No immediate confirm; wait for client ACK
           } catch (err) {
             this.logger.error(
               `emitToSocket failed for ${userId}:${deviceId}`,
               err,
             );
+            if (
+              [
+                DeliveryStrategy.WS_THEN_PUSH,
+                DeliveryStrategy.PUSH_ONLY,
+              ].includes(job.options.strategy)
+            ) {
+              const {
+                data = {},
+                pushData = {},
+                wsData: _,
+                ...notification
+              } = payload;
+              const pushFinal = { ...data, ...pushData, event };
+              await this.sendPush(userId, deviceId, {
+                notification,
+                data: pushFinal,
+              });
+              await this.queueService.confirmDelivery(
+                job.jobId,
+                userId,
+                deviceId,
+              );
+            }
           }
         }
       }
@@ -116,8 +139,14 @@ export abstract class BaseRealtimeProcessor {
         }
         case DeliveryStrategy.PUSH_ONLY: {
           for (const userId of userIds) {
-            const devices = await this.presenceService.getActiveDevices(userId);
-            for (const deviceId of devices) {
+            const deviceIds =
+              await this.presenceService.getActiveDevices(userId);
+            const dedupMap = await this.presenceService.dedupMultiSet(
+              job.data.jobId,
+              deviceIds,
+              REALTIME_DEDUP_TTL_MS,
+            );
+            for (const deviceId of deviceIds.filter((id) => dedupMap[id])) {
               await this.sendPush(userId, deviceId, {
                 notification,
                 data: pushFinal,
@@ -133,7 +162,6 @@ export abstract class BaseRealtimeProcessor {
             for (const uid of userIds) {
               const activeDevices =
                 await this.presenceService.getActiveDevices(uid);
-              // Assume all devices for user; fetch all and filter offline
               const allDevices =
                 await this.userDeviceService.getDevicesByUserIds([uid]);
               for (const dev of allDevices) {
@@ -147,6 +175,12 @@ export abstract class BaseRealtimeProcessor {
             }
           }
           for (const { userId, deviceId } of offlineDevices) {
+            const isNew = await this.presenceService.dedupSet(
+              job.data.jobId,
+              deviceId,
+              REALTIME_DEDUP_TTL_MS,
+            );
+            if (!isNew) continue;
             await this.sendPush(userId, deviceId, {
               notification,
               data: pushFinal,

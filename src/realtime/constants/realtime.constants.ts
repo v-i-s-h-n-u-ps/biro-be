@@ -1,5 +1,6 @@
 export const REALTIME_RECONNECT_GRACE_MS = 3000;
-export const REALTIME_JOB_TTL_SECONDS = 60;
 export const REALTIME_DEDUP_TTL_MS = 10_000;
 export const REALTIME_BULL_ATTEMPTS = 3;
 export const PENDING_SWEEP_INTERVAL_MS = 1000;
+export const REALTIME_PENDING_TTL_SECONDS = 300; // 5 minutes
+export const REALTIME_JOB_TTL_SECONDS = 600;

@@ -52,7 +52,7 @@ export class AppServerGateway
   async handleConnection(client: PresenceSocket) {
     const userId = this.extractUserId(client);
     if (!userId) return;
-    const deviceId = client.data.deviceId || 'unknown-device';
+    const deviceId = client.data.deviceId;
     if (!deviceId.trim()) {
       client.disconnect();
       return;
@@ -89,21 +89,33 @@ export class AppServerGateway
     );
   }
 
-  async handleDisconnect(client: PresenceSocket) {
+  handleDisconnect(client: PresenceSocket) {
     const userId = client.data?.userId;
     const deviceId = client.data?.deviceId;
     if (userId && deviceId && userId.trim() && deviceId.trim()) {
-      await this.redisService.withLock(`user:${userId}:presence`, async () => {
-        await this.presenceService.removeConnection(userId, deviceId);
-        // Only emit offline if no devices remain
-        const activeDevices =
-          await this.presenceService.getActiveDevices(userId);
-        if (activeDevices.length === 0) {
-          this.server
-            .to(`user:${userId}`)
-            .emit(NotificationEvents.NOTIFICATION_USER_OFFLINE, { userId });
-        }
-      });
+      const helper = async () => {
+        await this.redisService.withLock(
+          `user:${userId}:presence`,
+          async () => {
+            const currentSocket = await this.presenceService.getSocketForDevice(
+              userId,
+              deviceId,
+            );
+            if (currentSocket) return; // reconnected in meantime
+            await this.presenceService.removeConnection(userId, deviceId);
+            const activeDevices =
+              await this.presenceService.getActiveDevices(userId);
+            if (activeDevices.length === 0) {
+              this.server
+                .to(`user:${userId}`)
+                .emit(NotificationEvents.NOTIFICATION_USER_OFFLINE, { userId });
+            }
+          },
+        );
+      };
+      setTimeout(() => {
+        helper().catch(() => {});
+      }, 5000);
     }
   }
 

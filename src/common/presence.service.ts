@@ -168,10 +168,20 @@ export class PresenceService {
     deviceId: string,
   ): Promise<string[]> {
     if (!userId?.trim() || !deviceId?.trim()) return [];
-    const res = await this.redisService.client.hkeys(
-      RealtimeKeys.devicePendingHash(userId, deviceId),
-    );
-    return res ?? [];
+    const key = RealtimeKeys.devicePendingHash(userId, deviceId);
+    const jobs: string[] = [];
+    let cursor = '0';
+    do {
+      const [newCursor, fields] = await this.redisService.client.hscan(
+        key,
+        cursor,
+        'COUNT',
+        100,
+      );
+      cursor = newCursor;
+      jobs.push(...fields.filter((_, i) => i % 2 === 0));
+    } while (cursor !== '0');
+    return jobs;
   }
 
   // Get expired entries (zset entries with score <= now) - used by sweep worker
