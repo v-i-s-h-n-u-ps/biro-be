@@ -17,6 +17,7 @@ import { QueueClientFactory } from './queues/providers/queue-client-factory.prov
 import { QueuesModule } from './queues/queues.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { RideModule } from './rides/rides.module';
+import { StoriesModule } from './stories/stories.module';
 import { UsersModule } from './users/users.module';
 import { AppController } from './app.controller';
 import { AppGuard } from './app.guard';
@@ -26,12 +27,13 @@ import { AppService } from './app.service';
   imports: [
     AuthenticationModule,
     AuthorizationModule,
+    ConnectionsModule,
     FirebaseModule,
-    UsersModule,
     QueuesModule,
     RealtimeModule,
-    ConnectionsModule,
     RideModule,
+    StoriesModule,
+    UsersModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

@@ -10,7 +10,7 @@ import { StoriesService } from './services/stories.service';
 import { StoriesCleanup } from './services/story-cleanup.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Story, StoryView, ConnectionsModule])],
+  imports: [TypeOrmModule.forFeature([Story, StoryView]), ConnectionsModule],
   providers: [StoriesService, StoriesCleanup],
   controllers: [StoriesController],
 })
