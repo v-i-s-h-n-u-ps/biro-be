@@ -9,6 +9,7 @@ import { RedisService } from 'src/common/redis.service';
 import {
   REALTIME_DEDUP_TTL_MS,
   REALTIME_JOB_TTL_SECONDS,
+  REALTIME_PENDING_TTL_SECONDS,
 } from '../constants/realtime.constants';
 import { RealtimeJob } from '../interfaces/realtime-job.interface';
 
@@ -21,7 +22,6 @@ export class RealtimeQueueService {
     private readonly presence: PresenceService,
   ) {}
 
-  // Store job payload and mark dedup — returns emitted devices if not duplicate
   async storeJobWithDedup(
     job: RealtimeJob,
     deviceIds?: string[],
@@ -37,7 +37,6 @@ export class RealtimeQueueService {
       );
       emittedDevices.push(...deviceIds.filter((id) => dedupMap[id]));
     } else {
-      // single global dedup
       const dedupMap = await this.presence.dedupMultiSet(
         job.jobId,
         ['global'],
@@ -46,19 +45,22 @@ export class RealtimeQueueService {
       if (dedupMap['global']) emittedDevices.push('global');
     }
     if (emittedDevices.length) {
-      await this.redis.withTransaction((multi) => {
-        multi.set(
-          RealtimeKeys.jobKey(job.jobId),
-          JSON.stringify(job),
-          'EX',
-          REALTIME_JOB_TTL_SECONDS,
-        );
-      });
+      try {
+        await this.redis.withTransaction((multi) => {
+          multi.set(
+            RealtimeKeys.jobKey(job.jobId),
+            JSON.stringify(job),
+            'EX',
+            REALTIME_JOB_TTL_SECONDS,
+          );
+        });
+      } catch (err) {
+        this.logger.error(`Failed to store job ${job.jobId}`, err);
+      }
     }
     return emittedDevices;
   }
 
-  // Add pending record and schedule via zset expiry
   async addPendingForDevice(
     userId: string,
     deviceId: string,
@@ -69,9 +71,8 @@ export class RealtimeQueueService {
       userId,
       deviceId,
       job.jobId,
-      REALTIME_JOB_TTL_SECONDS,
+      REALTIME_PENDING_TTL_SECONDS,
     );
-    // also add to pending mapping set
     const deviceKey = `${userId}:${deviceId}`;
     await this.redis.client.sadd(
       RealtimeKeys.pendingMapping(job.jobId),
@@ -83,19 +84,16 @@ export class RealtimeQueueService {
     );
   }
 
-  // On reconnect, flush pending jobs for device — emit function is provided by caller
   async flushPendingForDevice(
     userId: string,
     deviceId: string,
     emitToSocketFn: (job: RealtimeJob, socketId: string) => void,
   ) {
-    // ... (initial checks unchanged)
     const jobIds = await this.presence.fetchPendingJobIds(userId, deviceId);
     if (!jobIds.length) return;
     const socketId = await this.presence.getSocketForDevice(userId, deviceId);
     if (!socketId) return;
     for (const jobId of jobIds) {
-      // Loop without lock; per-job lock inside
       await this.redis.withLock(
         `pending:${userId}:${deviceId}:${jobId}`,
         async () => {
@@ -104,7 +102,7 @@ export class RealtimeQueueService {
             RealtimeKeys.pendingMapping(jobId),
             deviceKey,
           );
-          if (!removed) return; // already delivered
+          if (!removed) return;
           const job = await this.presence.getJob(jobId);
           if (!job) {
             await this.presence.removePendingJob(userId, deviceId, jobId);
@@ -112,7 +110,6 @@ export class RealtimeQueueService {
           }
           try {
             emitToSocketFn(job, socketId);
-            // confirmDelivery called on client ACK, not here
           } catch (err) {
             this.logger.error(
               `emit failed for ${userId}:${deviceId} job ${jobId}`,
@@ -124,7 +121,6 @@ export class RealtimeQueueService {
     }
   }
 
-  // Called when client ACKs a job
   async confirmDelivery(jobId: string, userId: string, deviceId: string) {
     if (!jobId?.trim() || !userId?.trim() || !deviceId?.trim()) return;
     await this.redis.withLock(
@@ -137,13 +133,13 @@ export class RealtimeQueueService {
           deviceKey,
         );
         const lua = `
-          local key = KEYS[1]
-          if redis.call('SCARD', key) == 0 then
-            redis.call('DEL', key)
-            return 1
-          end
-          return 0
-        `;
+        local key = KEYS[1]
+        if redis.call('SCARD', key) == 0 then
+          redis.call('DEL', key)
+          return 1
+        end
+        return 0
+      `;
         const shouldCleanup = await this.redis.client.eval(
           lua,
           1,
@@ -151,7 +147,7 @@ export class RealtimeQueueService {
         );
         if (shouldCleanup) {
           await this.presence.deleteJob(jobId);
-          await this.presence.dedupDelete(jobId); // global cleanup
+          await this.presence.dedupDelete(jobId);
         } else {
           await this.presence.dedupDelete(jobId, deviceId);
         }
@@ -159,7 +155,6 @@ export class RealtimeQueueService {
     );
   }
 
-  // Sweep expired pending entries: find expired zset entries and trigger push fallback for them
   async sweepExpiredPendingAndFallback(
     sendPushFn: (
       userId: string,
@@ -197,17 +192,34 @@ export class RealtimeQueueService {
               const job = await this.presence.getJob(jobId);
               if (!job) return;
 
+              const hashKey = RealtimeKeys.devicePendingHash(userId, deviceId);
+              const attemptData = await this.redis.client.hget(hashKey, jobId);
+              let attemptCount = 0;
+              if (attemptData) {
+                const [count] = attemptData.split('|');
+                attemptCount = parseInt(count) || 0;
+              }
+              if (attemptCount >= 10) {
+                this.logger.warn(
+                  `Max retries (10) reached for ${jobId} -> ${userId}:${deviceId}`,
+                );
+                await this.presence.removePendingJob(userId, deviceId, jobId);
+                await this.redis.client.srem(
+                  RealtimeKeys.pendingMapping(jobId),
+                  `${userId}:${deviceId}`,
+                );
+                return;
+              }
+
               try {
                 await sendPushFn(userId, deviceId, job);
                 await this.confirmDelivery(jobId, userId, deviceId);
 
-                // Cleanup only on success
                 const lua = `
                 local mappingKey = KEYS[1]
                 local jobKey = KEYS[2]
                 local jobId = ARGV[1]
                 local device = ARGV[2]
-
                 redis.call('SREM', mappingKey, device)
                 if redis.call('SCARD', mappingKey) == 0 then
                   redis.call('DEL', jobKey)
@@ -228,8 +240,13 @@ export class RealtimeQueueService {
 
                 await this.presence.removePendingJob(userId, deviceId, jobId);
               } catch (err) {
-                this.logger.error(
-                  `Push failed for ${jobId} -> ${userId}:${deviceId}`,
+                await this.redis.client.hset(
+                  hashKey,
+                  jobId,
+                  `${attemptCount + 1}|${attemptData?.split('|')[1] || Date.now()}`,
+                );
+                this.logger.warn(
+                  `Push failed for ${jobId} -> ${userId}:${deviceId} (attempt ${attemptCount + 1})`,
                   err,
                 );
               }
