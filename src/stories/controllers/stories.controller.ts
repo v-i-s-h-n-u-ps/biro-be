@@ -1,4 +1,3 @@
-// stories.controller.ts
 import {
   Body,
   Controller,

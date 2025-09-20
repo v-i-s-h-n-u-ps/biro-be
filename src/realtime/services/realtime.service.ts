@@ -1,4 +1,3 @@
-// realtime.service.ts
 import { InjectQueue } from '@nestjs/bull';
 import { Injectable, Logger } from '@nestjs/common';
 import { type Queue } from 'bull';

@@ -1,4 +1,3 @@
-// pending-sweep.processor.ts
 import { Process, Processor } from '@nestjs/bull';
 
 import { QueueName } from 'src/common/constants/common.enum';

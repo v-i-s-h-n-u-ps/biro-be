@@ -1,4 +1,3 @@
-// realtime-queue.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import pLimit from 'p-limit';
 

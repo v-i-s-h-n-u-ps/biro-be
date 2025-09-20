@@ -5,16 +5,19 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import * as admin from 'firebase-admin';
 
 import { PresenceSocket } from 'src/common/types/socket.types';
+import { FirebaseService } from 'src/firebase/services/firebase.service';
 import { UsersService } from 'src/users/services/users.service';
 
 @Injectable()
 export class WsFirebaseAuthGuard implements CanActivate {
   private readonly logger = new Logger(WsFirebaseAuthGuard.name);
 
-  constructor(private readonly userService: UsersService) {}
+  constructor(
+    private readonly userService: UsersService,
+    private readonly firebaseService: FirebaseService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const client = context.switchToWs().getClient<PresenceSocket>(); // Socket
@@ -22,7 +25,7 @@ export class WsFirebaseAuthGuard implements CanActivate {
     if (!token) return false;
 
     try {
-      const decoded = await admin.auth().verifyIdToken(token);
+      const decoded = await this.firebaseService.verify(token);
       const user = await this.userService.findByFirebaseUid(decoded.uid);
       if (!user) throw new UnauthorizedException('User not found');
 

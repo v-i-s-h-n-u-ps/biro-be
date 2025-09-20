@@ -1,4 +1,3 @@
-// base.processor.ts
 import { OnQueueFailed } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import { type Job } from 'bull';

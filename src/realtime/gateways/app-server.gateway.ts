@@ -1,4 +1,3 @@
-// app-server.gateway.ts
 import { Logger } from '@nestjs/common';
 import {
   ConnectedSocket,

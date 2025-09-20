@@ -1,4 +1,3 @@
-// websocket.service.ts
 import { Injectable } from '@nestjs/common';
 
 import { WebSocketNamespace } from 'src/common/constants/common.enum';

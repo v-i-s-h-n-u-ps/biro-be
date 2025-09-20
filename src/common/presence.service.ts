@@ -1,4 +1,3 @@
-// presence.service.ts
 import { Injectable } from '@nestjs/common';
 
 import { RealtimeJob } from 'src/realtime/interfaces/realtime-job.interface';

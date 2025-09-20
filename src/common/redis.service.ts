@@ -1,4 +1,3 @@
-// redis.service.ts
 import { Injectable, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as IORedis from 'ioredis';

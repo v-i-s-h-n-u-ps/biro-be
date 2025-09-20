@@ -29,7 +29,6 @@ export class AppGuard implements CanActivate {
 
     const authGuard = type === 'http' ? this.authGuard : this.wsAuthGuard;
     if (!authGuard) return true;
-
     if (!(await authGuard.canActivate(context))) return false;
     if (!this.rolesGuard.canActivate(context)) return false;
     if (!this.permissionsGuard.canActivate(context)) return false;
