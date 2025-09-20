@@ -76,6 +76,7 @@ export class PresenceService {
     // Use HSCAN for large hashes instead of HKEYS
     const devices: string[] = [];
     let cursor = '0';
+    const maxDevices = 1000;
     do {
       const [newCursor, keys] = await this.redisService.client.hscan(
         RealtimeKeys.userDevices(userId),
@@ -85,7 +86,7 @@ export class PresenceService {
       );
       cursor = newCursor;
       devices.push(...keys.filter((_, i) => i % 2 === 0)); // keys are at even indices
-    } while (cursor !== '0');
+    } while (cursor !== '0' && devices.length < maxDevices);
     return devices;
   }
 
@@ -125,9 +126,15 @@ export class PresenceService {
       local ttl = ARGV[3]
       local expiryTs = ARGV[4]
       local value = ARGV[5]
-      redis.call('HSET', hashKey, jobId, enqueuedAt)
-      redis.call('EXPIRE', hashKey, ttl)
-      redis.call('ZADD', zsetKey, expiryTs, value)
+      local ok, err = pcall(function()
+        redis.call('HSET', hashKey, jobId, enqueuedAt)
+        redis.call('EXPIRE', hashKey, ttl)
+        redis.call('ZADD', zsetKey, expiryTs, value)
+      end)
+      if not ok then
+        return err
+      end
+      return "OK"
     `;
     await this.redisService.client.eval(
       lua,

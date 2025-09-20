@@ -1,5 +1,6 @@
 // realtime-queue.service.ts
 import { Injectable, Logger } from '@nestjs/common';
+import pLimit from 'p-limit';
 
 import { RealtimeKeys } from 'src/common/constants/realtime.keys';
 import { PresenceService } from 'src/common/presence.service';
@@ -76,6 +77,10 @@ export class RealtimeQueueService {
       RealtimeKeys.pendingMapping(job.jobId),
       deviceKey,
     );
+    await this.redis.client.expire(
+      RealtimeKeys.pendingMapping(job.jobId),
+      REALTIME_JOB_TTL_SECONDS * 1.5,
+    );
   }
 
   // On reconnect, flush pending jobs for device — emit function is provided by caller
@@ -131,10 +136,20 @@ export class RealtimeQueueService {
           RealtimeKeys.pendingMapping(jobId),
           deviceKey,
         );
-        const remaining = await this.redis.client.scard(
+        const lua = `
+          local key = KEYS[1]
+          if redis.call('SCARD', key) == 0 then
+            redis.call('DEL', key)
+            return 1
+          end
+          return 0
+        `;
+        const shouldCleanup = await this.redis.client.eval(
+          lua,
+          1,
           RealtimeKeys.pendingMapping(jobId),
         );
-        if (remaining === 0) {
+        if (shouldCleanup) {
           await this.presence.deleteJob(jobId);
           await this.presence.dedupDelete(jobId); // global cleanup
         } else {
@@ -152,53 +167,76 @@ export class RealtimeQueueService {
       job: RealtimeJob,
     ) => Promise<void>,
     batchSize = 200,
+    concurrency = 5,
   ) {
     const entries = await this.presence.popExpiredPendingEntries(batchSize);
     if (!entries.length) return;
-    for (const entry of entries) {
-      const [userId, deviceId, jobId] = entry.split('|');
-      if (!userId?.trim() || !deviceId?.trim() || !jobId?.trim()) continue;
-      await this.redis.withLock(
-        `pending:${userId}:${deviceId}:${jobId}`,
-        async () => {
-          // Re-check if still pending (flush might have raced)
-          const pendingIds = await this.presence.fetchPendingJobIds(
-            userId,
-            deviceId,
+
+    const limit = pLimit(concurrency);
+
+    await Promise.allSettled(
+      entries.map((entry) =>
+        limit(async () => {
+          const [userId, deviceId, jobId] = entry.split('|');
+          if (!userId?.trim() || !deviceId?.trim() || !jobId?.trim()) return;
+
+          await this.redis.withLock(
+            `pending:${userId}:${deviceId}:${jobId}`,
+            async () => {
+              const pendingIds = await this.presence.fetchPendingJobIds(
+                userId,
+                deviceId,
+              );
+              if (!pendingIds.includes(jobId)) return;
+
+              const activeDevices =
+                await this.presence.getActiveDevices(userId);
+              const isDeviceOnline = activeDevices.includes(deviceId);
+              if (isDeviceOnline) return;
+
+              const job = await this.presence.getJob(jobId);
+              if (!job) return;
+
+              try {
+                await sendPushFn(userId, deviceId, job);
+                await this.confirmDelivery(jobId, userId, deviceId);
+
+                // Cleanup only on success
+                const lua = `
+                local mappingKey = KEYS[1]
+                local jobKey = KEYS[2]
+                local jobId = ARGV[1]
+                local device = ARGV[2]
+
+                redis.call('SREM', mappingKey, device)
+                if redis.call('SCARD', mappingKey) == 0 then
+                  redis.call('DEL', jobKey)
+                end
+                return 1
+              `;
+                const mappingKey = RealtimeKeys.pendingMapping(jobId);
+                const jobKey = RealtimeKeys.jobKey(jobId);
+                const deviceKey = `${userId}:${deviceId}`;
+                await this.redis.client.eval(
+                  lua,
+                  2,
+                  mappingKey,
+                  jobKey,
+                  jobId,
+                  deviceKey,
+                );
+
+                await this.presence.removePendingJob(userId, deviceId, jobId);
+              } catch (err) {
+                this.logger.error(
+                  `Push failed for ${jobId} -> ${userId}:${deviceId}`,
+                  err,
+                );
+              }
+            },
           );
-          if (!pendingIds.includes(jobId)) return;
-          const activeDevices = await this.presence.getActiveDevices(userId);
-          const isDeviceOnline = activeDevices.includes(deviceId);
-          if (isDeviceOnline) return; // Reconnected; let flush handle
-          const job = await this.presence.getJob(jobId);
-          if (!job) return;
-          try {
-            await sendPushFn(userId, deviceId, job);
-            await this.confirmDelivery(jobId, userId, deviceId); // Confirm after push
-          } catch (err) {
-            this.logger.error(
-              `Push failed for ${jobId} -> ${userId}:${deviceId}`,
-              err,
-            );
-          } finally {
-            // Always clean up
-            await this.presence.removePendingJob(userId, deviceId, jobId);
-            const deviceKey = `${userId}:${deviceId}`;
-            await this.redis.client.srem(
-              RealtimeKeys.pendingMapping(jobId),
-              deviceKey,
-            );
-            if (
-              (await this.redis.client.scard(
-                RealtimeKeys.pendingMapping(jobId),
-              )) === 0
-            ) {
-              await this.presence.deleteJob(jobId);
-              await this.presence.dedupDelete(jobId);
-            }
-          }
-        },
-      );
-    }
+        }),
+      ),
+    );
   }
 }

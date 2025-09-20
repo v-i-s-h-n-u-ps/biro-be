@@ -64,6 +64,7 @@ export class AppServerGateway
         .to(`user:${userId}`)
         .emit(NotificationEvents.NOTIFICATION_USER_ONLINE, { userId });
     });
+    client.data['lastConnectionTime'] = Date.now();
 
     await this.queueService.flushPendingForDevice(
       userId,
@@ -94,6 +95,19 @@ export class AppServerGateway
     const deviceId = client.data?.deviceId;
     if (userId && deviceId && userId.trim() && deviceId.trim()) {
       const helper = async () => {
+        const disconnectTime = Date.now();
+        const currentSocket = await this.presenceService.getSocketForDevice(
+          userId,
+          deviceId,
+        );
+        if (currentSocket && currentSocket !== client.id) {
+          // Reconnected with different socket ID
+          return;
+        }
+        if (disconnectTime - (client.data['lastConnectionTime'] ?? 0) < 4500) {
+          // Reconnected quickly, probably a refresh
+          return;
+        }
         await this.redisService.withLock(
           `user:${userId}:presence`,
           async () => {
