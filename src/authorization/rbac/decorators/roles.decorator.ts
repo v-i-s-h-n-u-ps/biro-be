@@ -1,4 +1,4 @@
-import { SetMetadata } from '@nestjs/common';
+import { applyDecorators, SetMetadata } from '@nestjs/common';
 
 import { Role } from 'src/common/constants/rbac.enum';
 
@@ -21,19 +21,8 @@ export function Roles(
     }
   });
 
-  return (
-    target: (new (...args: unknown[]) => unknown) | object,
-    propertyKey?: string | symbol,
-    descriptor?: PropertyDescriptor,
-  ) => {
-    const Roles = SetMetadata(ROLES_KEY, roles);
-    const RequireAll = SetMetadata(REQUIRE_ALL_ROLES_KEY, requireAll);
-    if (propertyKey !== undefined && descriptor !== undefined) {
-      Roles(target, propertyKey, descriptor);
-      RequireAll(target, propertyKey, descriptor);
-    } else if (typeof target === 'function') {
-      Roles(target);
-      RequireAll(target);
-    }
-  };
+  return applyDecorators(
+    SetMetadata(ROLES_KEY, roles),
+    SetMetadata(REQUIRE_ALL_ROLES_KEY, requireAll),
+  );
 }

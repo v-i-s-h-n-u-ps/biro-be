@@ -1,10 +1,17 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import * as admin from 'firebase-admin';
 
 import { PresenceSocket } from 'src/common/types/socket.types';
 
 @Injectable()
 export class WsFirebaseAuthGuard implements CanActivate {
+  private readonly logger = new Logger(WsFirebaseAuthGuard.name);
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const client = context.switchToWs().getClient<PresenceSocket>(); // Socket
     const token = client.handshake.auth?.token;
@@ -15,7 +22,7 @@ export class WsFirebaseAuthGuard implements CanActivate {
       client.data.userId = decoded.uid;
       return true;
     } catch (err) {
-      console.error('Firebase auth error:', err);
+      this.logger.error('Firebase auth error:', err);
       return false;
     }
   }

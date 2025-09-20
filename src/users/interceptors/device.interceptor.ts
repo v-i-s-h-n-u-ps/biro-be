@@ -2,6 +2,7 @@ import {
   CallHandler,
   ExecutionContext,
   Injectable,
+  Logger,
   NestInterceptor,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core/services/reflector.service';
@@ -20,6 +21,8 @@ import { RegisterDeviceDto } from '../dtos/register-device.dto';
 
 @Injectable()
 export class DeviceInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(DeviceInterceptor.name);
+
   constructor(
     @InjectRepository(UserDevice)
     private readonly userDeviceRepo: Repository<UserDevice>,
@@ -27,9 +30,9 @@ export class DeviceInterceptor implements NestInterceptor {
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const skip = this.reflector.get<boolean>(
+    const skip = this.reflector.getAllAndOverride<boolean>(
       SKIP_INTERCEPTOR_KEY,
-      context.getHandler(),
+      [context.getHandler(), context.getClass()],
     );
     if (skip) return next.handle();
 
@@ -38,31 +41,35 @@ export class DeviceInterceptor implements NestInterceptor {
     if (!user) return next.handle();
 
     const header = request.headers['x-device-info'];
-    if (!header) return next.handle();
-
-    let dto: RegisterDeviceDto;
-    try {
-      if (typeof header !== 'string') return next.handle();
-      dto = plainToInstance(RegisterDeviceDto, JSON.parse(header), {
-        exposeDefaultValues: true,
-        enableImplicitConversion: true,
-      });
-      const errors = validateSync(dto);
-      if (errors.length) {
-        console.warn('Invalid X-Device-Info header:', errors);
-        return next.handle();
-      }
-    } catch (err) {
-      console.warn('Invalid X-Device-Info header or validation failed:', err);
-      return next.handle();
-    }
+    if (!header || typeof header !== 'string') return next.handle();
 
     return next.handle().pipe(
       tap({
         next: () => {
-          this.userDeviceRepo
-            .upsert({ ...dto, user }, ['deviceToken'])
-            .catch(console.warn);
+          try {
+            const dto = plainToInstance(RegisterDeviceDto, JSON.parse(header), {
+              exposeDefaultValues: true,
+              enableImplicitConversion: true,
+            });
+            const errors = validateSync(dto);
+            if (errors.length) {
+              this.logger.warn('Invalid device info:', errors);
+              return;
+            }
+            this.userDeviceRepo
+              .upsert({ ...dto, user }, ['deviceToken'])
+              .catch((err) =>
+                this.logger.warn(
+                  `Failed to update device info for user ${user.id}: `,
+                  err,
+                ),
+              );
+          } catch (err) {
+            this.logger.warn(
+              `Failed to parse device info for user ${user.id}: `,
+              err,
+            );
+          }
         },
       }),
     );

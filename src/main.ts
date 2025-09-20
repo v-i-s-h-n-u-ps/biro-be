@@ -9,20 +9,20 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.enableVersioning({
-    type: VersioningType.URI,
-  });
+  app.use(helmet());
+  app.enableVersioning({ type: VersioningType.URI });
+
   app.useGlobalInterceptors(
     new ClassSerializerInterceptor(app.get(Reflector), {
-      // Exclude all extraneous properties by default unless they are specifically
-      // exposed in the response entities
       excludeExtraneousValues: true,
     }),
   );
   app.useGlobalInterceptors(app.get(DeviceInterceptor));
 
-  app.use(helmet());
   app.useLogger(app.get(Logger));
+  app.enableShutdownHooks();
+
   await app.listen(process.env.PORT ?? 5050);
 }
+
 bootstrap();

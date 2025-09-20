@@ -9,7 +9,7 @@ export interface ResourceRoleRequirement {
   requireAll?: boolean;
 }
 
-export const RESOURCE_ROLES_KEY = 'resource_roles';
+export const RESOURCE_ROLES_KEY = 'resourceRoles';
 
 export const ResourceRoles = (...requirements: ResourceRoleRequirement[]) =>
   applyDecorators(SetMetadata(RESOURCE_ROLES_KEY, requirements));

@@ -16,9 +16,14 @@ export class RideRolesGuard extends ResourceRolesGuard<RideParticipant, Ride> {
     reflector: Reflector,
     @InjectRepository(RideParticipant)
     protected readonly relationRepo: Repository<RideParticipant>,
-    protected readonly resourceType = ResourceType.RIDE,
   ) {
-    super(reflector, 'participant', 'ride', 'participantRole');
+    super(
+      reflector,
+      ResourceType.RIDE,
+      'participant',
+      'ride',
+      'participantRole',
+    );
   }
 
   protected getResourceId(req: Request): string {

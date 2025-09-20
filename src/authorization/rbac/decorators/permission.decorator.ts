@@ -1,4 +1,4 @@
-import { SetMetadata } from '@nestjs/common';
+import { applyDecorators, SetMetadata } from '@nestjs/common';
 
 import { Permission } from 'src/common/constants/rbac.enum';
 
@@ -21,19 +21,8 @@ export function Permissions(
     }
   });
 
-  return (
-    target: (new (...args: unknown[]) => unknown) | object,
-    propertyKey?: string | symbol,
-    descriptor?: PropertyDescriptor,
-  ) => {
-    const Permissions = SetMetadata(PERMISSIONS_KEY, permissions);
-    const RequireAll = SetMetadata(REQUIRE_ALL_PERMISSIONS_KEY, requireAll);
-    if (propertyKey !== undefined && descriptor !== undefined) {
-      Permissions(target, propertyKey, descriptor);
-      RequireAll(target, propertyKey, descriptor);
-    } else if (typeof target === 'function') {
-      Permissions(target);
-      RequireAll(target);
-    }
-  };
+  return applyDecorators(
+    SetMetadata(PERMISSIONS_KEY, permissions),
+    SetMetadata(REQUIRE_ALL_PERMISSIONS_KEY, requireAll),
+  );
 }

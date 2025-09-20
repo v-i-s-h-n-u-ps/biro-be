@@ -29,10 +29,10 @@ export abstract class ResourceRolesGuard<
 {
   protected abstract relationRepo: Repository<TRelation>;
   protected abstract getResourceId(req: Request): string;
-  protected abstract resourceType: ResourceType;
 
   constructor(
     protected readonly reflector: Reflector,
+    protected readonly resourceType: ResourceType,
     protected readonly userKey: ForeignKeyOf<TRelation, User>,
     protected readonly resourceKey: ForeignKeyOf<TRelation, TResource>,
     protected readonly resourceRoleKey: ForeignKeyOf<TRelation, ResourceRoles>,

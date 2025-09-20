@@ -8,8 +8,8 @@ import { validationSchema } from 'config/types';
 import { LoggerModule } from 'nestjs-pino';
 
 import { AuthenticationModule } from './authentication/authentication.module';
-import { FirebaseAuthGuard } from './authentication/guards/firebase-auth.guard';
 import { AuthorizationModule } from './authorization/authorization.module';
+import { PresenceService } from './common/presence.service';
 import { RedisService } from './common/redis.service';
 import { ConnectionsModule } from './connections/connections.module';
 import { FirebaseModule } from './firebase/firebase.module';
@@ -19,6 +19,7 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { RideModule } from './rides/rides.module';
 import { UsersModule } from './users/users.module';
 import { AppController } from './app.controller';
+import { AppGuard } from './app.guard';
 import { AppService } from './app.service';
 
 @Module({
@@ -85,10 +86,8 @@ import { AppService } from './app.service';
   providers: [
     AppService,
     RedisService,
-    {
-      provide: APP_GUARD,
-      useClass: FirebaseAuthGuard,
-    },
+    PresenceService,
+    { provide: APP_GUARD, useClass: AppGuard },
   ],
 })
 export class AppModule {}

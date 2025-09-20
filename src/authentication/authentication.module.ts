@@ -12,6 +12,6 @@ import { AuthenticationService } from './services/authentication.service';
   imports: [UsersModule, AuthorizationModule],
   providers: [AuthenticationService, FirebaseAuthGuard, WsFirebaseAuthGuard],
   controllers: [AuthenticationController],
-  exports: [AuthenticationService],
+  exports: [AuthenticationService, FirebaseAuthGuard, WsFirebaseAuthGuard],
 })
 export class AuthenticationModule {}
