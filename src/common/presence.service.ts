@@ -115,7 +115,6 @@ export class PresenceService {
     // Use HSCAN for large hashes instead of HKEYS
     const devices: string[] = [];
     let cursor = '0';
-    const maxDevices = 1000;
     let keys: string[] = [];
     do {
       const [newCursor, fields] = await this.redisService.client.hscan(
@@ -127,7 +126,7 @@ export class PresenceService {
       keys = [...fields];
       cursor = newCursor;
       devices.push(...keys.filter((_, i) => i % 2 === 0)); // keys are at even indices
-    } while (cursor !== '0' && devices.length < maxDevices && keys.length > 0);
+    } while (cursor !== '0' && devices.length < 1000 && keys.length > 0); // safety limit
     return devices;
   }
 

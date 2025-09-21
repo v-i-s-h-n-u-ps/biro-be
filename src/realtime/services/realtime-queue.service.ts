@@ -228,7 +228,7 @@ export class RealtimeQueueService {
                 }
               } catch (err) {
                 this.logger.warn(
-                  `Retry failed for ${jobId} -> ${userId}:${deviceId} (attempt ${attemptCount + 1})`,
+                  `Retry failed for ${jobId} -> ${userId}:${deviceId} (attempt ${attemptCount})`,
                   err,
                 );
               }

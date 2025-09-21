@@ -1,6 +1,6 @@
 import { Process, Processor } from '@nestjs/bull';
 
-import { QueueName } from 'src/common/constants/common.enum';
+import { DeliveryStrategy, QueueName } from 'src/common/constants/common.enum';
 import { RedisService } from 'src/common/redis.service';
 import { FirebaseService } from 'src/firebase/services/firebase.service';
 import { UserDeviceService } from 'src/users/services/user-devices.service';
@@ -31,6 +31,8 @@ export class PendingSweepProcessor {
       async () => {
         await this.queueService.sweepExpiredPendingAndFallback(
           async (userId, deviceId, jobPayload) => {
+            if (jobPayload.options.strategy === DeliveryStrategy.WS_ONLY)
+              return;
             // Added deviceId
             const devices = await this.userDeviceService.getDevicesByUserIds([
               userId,
@@ -40,7 +42,10 @@ export class PendingSweepProcessor {
             )?.deviceToken;
             if (!token) return;
             const payload = getNotificationPayload(jobPayload);
-            await this.firebaseService.sendNotificationToDevice(token, payload);
+            await this.firebaseService.sendNotificationToDevice(token, {
+              notification: payload.notification,
+              data: payload.pushData,
+            });
           },
           PENDING_SWEEP_INTERVAL_MS,
           REALTIME_RECONNECT_GRACE_MS,

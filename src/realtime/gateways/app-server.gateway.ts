@@ -93,50 +93,43 @@ export class AppServerGateway
     );
   }
 
-  handleDisconnect(client: PresenceSocket) {
+  async handleDisconnect(client: PresenceSocket) {
     const userId = client.data?.userId;
     const deviceId = client.data?.deviceId;
     if (!userId?.trim() || !deviceId?.trim()) return;
 
     const disconnectTime = Date.now();
 
-    const helper = async () => {
+    const currentSocket = await this.presenceService.getSocketForDevice(
+      userId,
+      deviceId,
+    );
+    if (currentSocket && currentSocket !== client.id) return; // Reconnected
+
+    // Apply grace period before marking offline
+    if (
+      disconnectTime - (client.data['lastConnectionTime'] ?? 0) <
+      REALTIME_RECONNECT_GRACE_MS
+    ) {
+      return;
+    }
+
+    await this.redisService.withLock(`user:${userId}:presence`, async () => {
       const currentSocket = await this.presenceService.getSocketForDevice(
         userId,
         deviceId,
       );
-      if (currentSocket && currentSocket !== client.id) return; // Reconnected
+      if (currentSocket) return; // Reconnected during grace
 
-      // Apply grace period before marking offline
-      if (
-        disconnectTime - (client.data['lastConnectionTime'] ?? 0) <
-        REALTIME_RECONNECT_GRACE_MS
-      ) {
-        return;
+      await this.presenceService.removeConnection(userId, deviceId);
+
+      const activeDevices = await this.presenceService.getActiveDevices(userId);
+      if (activeDevices.length === 0) {
+        this.server
+          .to(`user:${userId}`)
+          .emit(NotificationEvents.NOTIFICATION_USER_OFFLINE, { userId });
       }
-
-      await this.redisService.withLock(`user:${userId}:presence`, async () => {
-        const currentSocket = await this.presenceService.getSocketForDevice(
-          userId,
-          deviceId,
-        );
-        if (currentSocket) return; // Reconnected during grace
-
-        await this.presenceService.removeConnection(userId, deviceId);
-
-        const activeDevices =
-          await this.presenceService.getActiveDevices(userId);
-        if (activeDevices.length === 0) {
-          this.server
-            .to(`user:${userId}`)
-            .emit(NotificationEvents.NOTIFICATION_USER_OFFLINE, { userId });
-        }
-      });
-    };
-
-    void helper().catch((err) =>
-      this.logger.error(`Disconnect failed for ${userId}:${deviceId}`, err),
-    );
+    });
   }
 
   @SubscribeMessage(ClientEvents.PRESENCE_JOIN)

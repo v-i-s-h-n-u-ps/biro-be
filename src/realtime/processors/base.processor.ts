@@ -124,8 +124,10 @@ export abstract class BaseRealtimeProcessor {
         }
         case DeliveryStrategy.PUSH_ONLY: {
           for (const userId of userIds) {
-            const deviceIds =
-              await this.presenceService.getActiveDevices(userId);
+            const devices = await this.userDeviceService.getDevicesByUserIds([
+              userId,
+            ]);
+            const deviceIds = devices.map((d) => d.deviceToken);
             const dedupMap = await this.realtimeStore.dedupMultiSet(
               job.data.jobId,
               deviceIds,

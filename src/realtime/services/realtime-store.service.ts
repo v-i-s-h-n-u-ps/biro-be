@@ -29,7 +29,7 @@ export class RealtimeStoreService {
       local value = ARGV[5]
 
       -- Use pipeline for atomic execution
-      redis.call('HSET', hashKey, jobId, enqueuedAt)
+      redis.call('HSET', hashKey, jobId, '0|' .. enqueuedAt)
       redis.call('EXPIRE', hashKey, ttl)
       redis.call('ZADD', zsetKey, expiryTs, value)
 
@@ -56,7 +56,6 @@ export class RealtimeStoreService {
       local hashKey = KEYS[1]
       local zsetKey = KEYS[2]
       local mappingKey = KEYS[3]
-      local jobKey = KEYS[4]
       local jobId = ARGV[1]
       local device = ARGV[2]
       local pendingValue = ARGV[3]
@@ -66,22 +65,18 @@ export class RealtimeStoreService {
       redis.call('ZREM', zsetKey, pendingValue)
       redis.call('SREM', mappingKey, device)
 
-      -- Check if mapping set is empty and clean up
-      if redis.call('SCARD', mappingKey) == 0 then
-        redis.call('DEL', jobKey, mappingKey) -- Delete both job key and mapping key
-      end
-
       return 1
     `;
     await this.redisService.client.eval(
       lua,
-      2,
+      3,
       RealtimeKeys.devicePendingHash(userId, deviceId),
       RealtimeKeys.pendingExpiryZset(),
+      RealtimeKeys.pendingMapping(jobId),
       jobId,
+      RealtimeKeys.deviceKey(userId, deviceId),
       RealtimeKeys.pendingJobValue(userId, deviceId, jobId),
     );
-    await this.jobDeviceMapping(jobId).remove(userId, deviceId);
   }
 
   async fetchPendingJobIds(
