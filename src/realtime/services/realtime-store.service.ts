@@ -24,18 +24,16 @@ export class RealtimeStoreService {
       local zsetKey = KEYS[2]
       local jobId = ARGV[1]
       local enqueuedAt = ARGV[2]
-      local ttl = ARGV[3]
-      local expiryTs = ARGV[4]
+      local ttl = tonumber(ARGV[3])
+      local expiryTs = tonumber(ARGV[4])
       local value = ARGV[5]
-      local ok, err = pcall(function()
-        redis.call('HSET', hashKey, jobId, enqueuedAt)
-        redis.call('EXPIRE', hashKey, ttl)
-        redis.call('ZADD', zsetKey, expiryTs, value)
-      end)
-      if not ok then
-        return err
-      end
-      return "OK"
+
+      -- Use pipeline for atomic execution
+      redis.call('HSET', hashKey, jobId, enqueuedAt)
+      redis.call('EXPIRE', hashKey, ttl)
+      redis.call('ZADD', zsetKey, expiryTs, value)
+
+      return 1
     `;
     await this.redisService.client.eval(
       lua,
@@ -57,10 +55,23 @@ export class RealtimeStoreService {
     const lua = `
       local hashKey = KEYS[1]
       local zsetKey = KEYS[2]
+      local mappingKey = KEYS[3]
+      local jobKey = KEYS[4]
       local jobId = ARGV[1]
-      local value = ARGV[2]
+      local device = ARGV[2]
+      local pendingValue = ARGV[3]
+
+      -- Remove from all structures
       redis.call('HDEL', hashKey, jobId)
-      redis.call('ZREM', zsetKey, value)
+      redis.call('ZREM', zsetKey, pendingValue)
+      redis.call('SREM', mappingKey, device)
+
+      -- Check if mapping set is empty and clean up
+      if redis.call('SCARD', mappingKey) == 0 then
+        redis.call('DEL', jobKey, mappingKey) -- Delete both job key and mapping key
+      end
+
+      return 1
     `;
     await this.redisService.client.eval(
       lua,
@@ -70,6 +81,7 @@ export class RealtimeStoreService {
       jobId,
       RealtimeKeys.pendingJobValue(userId, deviceId, jobId),
     );
+    await this.jobDeviceMapping(jobId).remove(userId, deviceId);
   }
 
   async fetchPendingJobIds(
@@ -98,10 +110,27 @@ export class RealtimeStoreService {
     const zkey = RealtimeKeys.pendingExpiryZset();
     const now = Date.now();
     const lua = `
-      local items = redis.call('ZRANGEBYSCORE', KEYS[1], 0, ARGV[1], 'LIMIT', 0, ARGV[2])
-      for i=1,#items do
-        redis.call('ZREM', KEYS[1], items[i])
+      local zkey = KEYS[1]
+      local maxScore = tonumber(ARGV[1])
+      local limit = tonumber(ARGV[2])
+
+      -- Get and remove in single operation using ZPOPMIN
+      local items = {}
+      local count = 0
+
+      while count < limit do
+        local result = redis.call('ZRANGEBYSCORE', zkey, 0, maxScore, 'WITHSCORES', 'LIMIT', 0, 1)
+        if #result == 0 then break end
+
+        local item = result[1]
+        local score = result[2]
+
+        if redis.call('ZREM', zkey, item) == 1 then
+          table.insert(items, item)
+          count = count + 1
+        end
       end
+
       return items
     `;
     const result = await this.redisService.client.eval(
@@ -182,12 +211,59 @@ export class RealtimeStoreService {
   attemptCount(userId: string, deviceId: string, jobId: string) {
     const hashKey = RealtimeKeys.devicePendingHash(userId, deviceId);
 
+    const lua = `
+      local hashKey = KEYS[1]
+      local jobId = ARGV[1]
+      local operation = ARGV[2]  -- 'get', 'set', 'increment'
+      local setValue = ARGV[3]   -- optional for set operation
+
+      if operation == 'get' then
+        local data = redis.call('HGET', hashKey, jobId)
+        if not data then return nil end
+        return data
+      end
+
+      if operation == 'set' then
+        redis.call('HSET', hashKey, jobId, setValue)
+        return setValue
+      end
+
+      if operation == 'increment' then
+        local current = redis.call('HGET', hashKey, jobId)
+        local count = 0
+        local timestamp = redis.call('TIME')[1] * 1000  -- Current time in ms
+
+        if current then
+          local parts = {}
+          for part in string.gmatch(current, "[^|]+") do
+            table.insert(parts, part)
+          end
+          if #parts >= 1 then count = tonumber(parts[1]) or 0 end
+          if #parts >= 2 then timestamp = tonumber(parts[2]) or timestamp end
+        end
+
+        count = count + 1
+        local newValue = count .. "|" .. timestamp
+        redis.call('HSET', hashKey, jobId, newValue)
+        return newValue
+      end
+
+      return nil
+    `;
+
     return {
       get: async (): Promise<{ count: number; timestamp: number } | null> => {
-        const attemptData = await this.redisService.client.hget(hashKey, jobId);
-        if (!attemptData) return null;
-        const [countStr = '0', tsStr = Date.now().toString()] =
-          attemptData.split('|');
+        const raw = await this.redisService.client.eval(
+          lua,
+          1,
+          hashKey,
+          jobId,
+          'get',
+        );
+        if (!raw) return null;
+        const [countStr = '0', tsStr = Date.now().toString()] = (
+          raw as string
+        ).split('|');
         return {
           count: parseInt(countStr) || 0,
           timestamp: parseInt(tsStr) || Date.now(),
@@ -196,8 +272,38 @@ export class RealtimeStoreService {
 
       set: async (count: number, timestamp?: number) => {
         const ts = timestamp || Date.now();
-        await this.redisService.client.hset(hashKey, jobId, `${count}|${ts}`);
-        return { count, timestamp: ts };
+        const raw = await this.redisService.client.eval(
+          lua,
+          1,
+          hashKey,
+          jobId,
+          'set',
+          `${count}|${ts}`,
+        );
+        const [countStr = '0', tsStr = Date.now().toString()] = (
+          raw as string
+        ).split('|');
+        return {
+          count: parseInt(countStr) || 0,
+          timestamp: parseInt(tsStr) || ts,
+        };
+      },
+
+      increment: async () => {
+        const raw = await this.redisService.client.eval(
+          lua,
+          1,
+          hashKey,
+          jobId,
+          'increment',
+        );
+        const [countStr = '0', tsStr = Date.now().toString()] = (
+          raw as string
+        ).split('|');
+        return {
+          count: parseInt(countStr) || 0,
+          timestamp: parseInt(tsStr) || Date.now(),
+        };
       },
     };
   }
@@ -254,16 +360,38 @@ export class RealtimeStoreService {
       keys.push(RealtimeKeys.dedupKey(jobId, deviceId));
     });
     const lua = `
-      local results = {}
       local ttl = tonumber(ARGV[1])
-      for i=1,#KEYS do
-        local res = redis.call('SET', KEYS[i], '1', 'PX', ttl, 'NX')
-        if res then
-          table.insert(results, 1)
-        else
-          table.insert(results, 0)
+      local keyCount = #KEYS
+      local results = {}
+
+      -- Try to set all keys atomically with MSETNX
+      local setArgs = {}
+      for i = 1, keyCount do
+        table.insert(setArgs, KEYS[i])
+        table.insert(setArgs, '1')
+      end
+
+      local successCount = redis.call('MSETNX', unpack(setArgs))
+
+      if successCount == 1 then
+        -- All keys were set successfully
+        for i = 1, keyCount do
+          redis.call('PEXPIRE', KEYS[i], ttl)
+          results[i] = 1
+        end
+      else
+        -- Some keys already exist, check individually
+        for i = 1, keyCount do
+          local exists = redis.call('EXISTS', KEYS[i])
+          if exists == 0 then
+            redis.call('SET', KEYS[i], '1', 'PX', ttl)
+            results[i] = 1
+          else
+            results[i] = 0
+          end
         end
       end
+
       return results
     `;
 

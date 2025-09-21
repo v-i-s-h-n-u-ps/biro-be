@@ -10,7 +10,6 @@ import {
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 
-import { DeliveryStrategy } from 'src/common/constants/common.enum';
 import {
   ClientEvents,
   NotificationEvents,
@@ -18,13 +17,10 @@ import {
 import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
 import { type PresenceSocket } from 'src/common/types/socket.types';
-import { FirebaseService } from 'src/firebase/services/firebase.service';
-import { UserDeviceService } from 'src/users/services/user-devices.service';
 
 import { REALTIME_RECONNECT_GRACE_MS } from '../constants/realtime.constants';
 import { RealtimeJob } from '../interfaces/realtime-job.interface';
 import { RealtimeQueueService } from '../services/realtime-queue.service';
-import { RealtimeStoreService } from '../services/realtime-store.service';
 
 @WebSocketGateway({
   cors: { origin: '*', methods: ['GET', 'POST'] },
@@ -41,9 +37,6 @@ export class AppServerGateway
     private readonly presenceService: PresenceService,
     private readonly queueService: RealtimeQueueService,
     private readonly redisService: RedisService,
-    private readonly userDeviceService: UserDeviceService,
-    private readonly firebaseService: FirebaseService,
-    private readonly realtimeStore: RealtimeStoreService,
   ) {}
 
   private extractUserId(client: PresenceSocket): string | null {
@@ -105,28 +98,32 @@ export class AppServerGateway
     const deviceId = client.data?.deviceId;
     if (!userId?.trim() || !deviceId?.trim()) return;
 
+    const disconnectTime = Date.now();
+
     const helper = async () => {
-      const disconnectTime = Date.now();
       const currentSocket = await this.presenceService.getSocketForDevice(
         userId,
         deviceId,
       );
-      if (currentSocket && currentSocket !== client.id) {
-        return; // Reconnected
-      }
+      if (currentSocket && currentSocket !== client.id) return; // Reconnected
+
+      // Apply grace period before marking offline
       if (
         disconnectTime - (client.data['lastConnectionTime'] ?? 0) <
         REALTIME_RECONNECT_GRACE_MS
       ) {
-        return; // Quick reconnect
+        return;
       }
+
       await this.redisService.withLock(`user:${userId}:presence`, async () => {
         const currentSocket = await this.presenceService.getSocketForDevice(
           userId,
           deviceId,
         );
-        if (currentSocket) return; // Reconnected in meantime
+        if (currentSocket) return; // Reconnected during grace
+
         await this.presenceService.removeConnection(userId, deviceId);
+
         const activeDevices =
           await this.presenceService.getActiveDevices(userId);
         if (activeDevices.length === 0) {
@@ -134,90 +131,12 @@ export class AppServerGateway
             .to(`user:${userId}`)
             .emit(NotificationEvents.NOTIFICATION_USER_OFFLINE, { userId });
         }
-
-        // Immediate push for pending jobs
-        const jobIds = await this.realtimeStore.fetchPendingJobIds(
-          userId,
-          deviceId,
-        );
-        if (!jobIds.length) return;
-        const devices = await this.userDeviceService.getDevicesByUserIds([
-          userId,
-        ]);
-        const token = devices.find(
-          (d) => d.deviceToken === deviceId,
-        )?.deviceToken;
-        if (!token) return;
-
-        for (const jobId of jobIds) {
-          await this.redisService.withLock(
-            `pending:${userId}:${deviceId}:${jobId}`,
-            async () => {
-              const pendingIds = await this.realtimeStore.fetchPendingJobIds(
-                userId,
-                deviceId,
-              );
-              if (!pendingIds.includes(jobId)) return;
-              const job = await this.realtimeStore.manageJob(jobId).get();
-              if (
-                !job ||
-                job.options.strategy !== DeliveryStrategy.WS_THEN_PUSH
-              )
-                return;
-
-              const { count: attemptCount, timestamp } =
-                await this.realtimeStore
-                  .attemptCount(userId, deviceId, jobId)
-                  .get();
-
-              if (attemptCount >= 10) {
-                this.logger.warn(
-                  `Max retries (10) reached for ${jobId} -> ${userId}:${deviceId}`,
-                );
-                await this.realtimeStore.removePendingJobFully(
-                  userId,
-                  deviceId,
-                  jobId,
-                );
-                return;
-              }
-
-              try {
-                const {
-                  data = {},
-                  pushData = {},
-                  wsData: _,
-                  ...notification
-                } = job.payload;
-                const pushFinal = { ...data, ...pushData, event: job.event };
-                await this.firebaseService.sendNotificationToDevice(token, {
-                  notification,
-                  data: pushFinal,
-                });
-                await this.queueService.confirmDelivery(
-                  jobId,
-                  userId,
-                  deviceId,
-                );
-              } catch (err) {
-                await this.realtimeStore
-                  .attemptCount(userId, deviceId, jobId)
-                  .set(attemptCount + 1, timestamp);
-                this.logger.warn(
-                  `Push failed on disconnect for ${jobId} -> ${userId}:${deviceId} (attempt ${attemptCount + 1}): ${JSON.stringify(err)}`,
-                );
-              }
-            },
-          );
-        }
       });
     };
 
-    setTimeout(() => {
-      helper().catch((err) => {
-        this.logger.error(`Disconnect failed for ${userId}:${deviceId}`, err);
-      });
-    }, 5000);
+    void helper().catch((err) =>
+      this.logger.error(`Disconnect failed for ${userId}:${deviceId}`, err),
+    );
   }
 
   @SubscribeMessage(ClientEvents.PRESENCE_JOIN)

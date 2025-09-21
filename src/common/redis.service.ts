@@ -1,10 +1,12 @@
-import { Injectable, OnApplicationShutdown } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as IORedis from 'ioredis';
 import { createLock, IoredisAdapter, LockHandle } from 'redlock-universal';
 
 @Injectable()
 export class RedisService implements OnApplicationShutdown {
+  private readonly logger = new Logger(RedisService.name);
+
   client: IORedis.Redis;
   private adapter: IoredisAdapter;
   constructor(private readonly configService: ConfigService) {
@@ -39,7 +41,8 @@ export class RedisService implements OnApplicationShutdown {
     try {
       handle = await lock.acquire();
       return await fn();
-    } catch {
+    } catch (error) {
+      this.logger.error(`Lock acquisition failed for ${resource}`, error);
       return null;
     } finally {
       if (handle) {

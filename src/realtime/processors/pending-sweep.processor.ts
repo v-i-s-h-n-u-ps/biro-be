@@ -5,7 +5,12 @@ import { RedisService } from 'src/common/redis.service';
 import { FirebaseService } from 'src/firebase/services/firebase.service';
 import { UserDeviceService } from 'src/users/services/user-devices.service';
 
+import {
+  PENDING_SWEEP_INTERVAL_MS,
+  REALTIME_RECONNECT_GRACE_MS,
+} from '../constants/realtime.constants';
 import { RealtimeQueueService } from '../services/realtime-queue.service';
+import { getNotificationPayload } from '../utils/payload.helper';
 
 @Processor(QueueName.PENDING_SWEEP) // this queue is used only for the repeatable sweep job
 export class PendingSweepProcessor {
@@ -34,24 +39,11 @@ export class PendingSweepProcessor {
               (d) => d.deviceToken === deviceId,
             )?.deviceToken;
             if (!token) return;
-            const {
-              userIds: _userIds,
-              event,
-              payload: {
-                data = {},
-                wsData: _wsData,
-                pushData = {},
-                ...notification
-              },
-              options: _options,
-            } = jobPayload;
-            const pushFinal = { ...data, ...pushData, event };
-            const payload = {
-              notification,
-              data: pushFinal,
-            };
+            const payload = getNotificationPayload(jobPayload);
             await this.firebaseService.sendNotificationToDevice(token, payload);
           },
+          PENDING_SWEEP_INTERVAL_MS,
+          REALTIME_RECONNECT_GRACE_MS,
         );
       },
       this.lockTTL,

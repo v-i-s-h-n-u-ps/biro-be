@@ -13,6 +13,7 @@ import { RealtimeJob } from '../interfaces/realtime-job.interface';
 import { RealtimeQueueService } from '../services/realtime-queue.service';
 import { RealtimeStoreService } from '../services/realtime-store.service';
 import { WebsocketService } from '../services/websocket.service';
+import { getNotificationPayload } from '../utils/payload.helper';
 
 export abstract class BaseRealtimeProcessor {
   protected logger = new Logger(this.constructor.name);
@@ -40,34 +41,44 @@ export abstract class BaseRealtimeProcessor {
   private dedupeArray<T>(arr?: T[]): T[] {
     return arr ? Array.from(new Set(arr)) : [];
   }
-
   protected async emitToWs(job: RealtimeJob) {
     job.userIds = this.dedupeArray(job.userIds);
     job.websocketRoomIds = this.dedupeArray(job.websocketRoomIds);
-    const { userIds, websocketRoomIds, event, payload, options, namespace } =
-      job;
+
+    const {
+      userIds = [],
+      websocketRoomIds = [],
+      event,
+      options,
+      namespace,
+    } = job;
+
+    const { wsPayload } = getNotificationPayload(job);
+
     // --- Emit to rooms ---
     if (options.emitToRoom && websocketRoomIds.length) {
-      // Add global dedup for rooms
       const isNew = await this.realtimeStore.dedupSet(
         job.jobId,
         'global',
         REALTIME_DEDUP_TTL_MS,
       );
       if (!isNew) return;
+
       for (const roomId of websocketRoomIds) {
         try {
-          this.wsService.emitToRoom(namespace, roomId, event, payload);
+          this.wsService.emitToRoom(namespace, roomId, event, wsPayload);
         } catch (err) {
           this.logger.error(`emitToRoom failed for room ${roomId}`, err);
         }
       }
     }
+
     // --- Emit per-user per-device ---
     if (options.emitToUser && userIds.length) {
       for (const userId of userIds) {
         const deviceIds = await this.presenceService.getActiveDevices(userId);
         if (!deviceIds.length) continue;
+
         const dedupMap = await this.realtimeStore.dedupMultiSet(
           job.jobId,
           deviceIds,
@@ -75,52 +86,23 @@ export abstract class BaseRealtimeProcessor {
         );
         const emittedDevices = deviceIds.filter((id) => dedupMap[id]);
         if (!emittedDevices.length) continue;
+
         for (const deviceId of emittedDevices) {
           await this.queueService.addPendingForDevice(userId, deviceId, job);
-          const socketId = await this.presenceService.getSocketForDevice(
-            userId,
-            deviceId,
-          );
-          if (!socketId) continue;
-          const emitPayload = {
-            ...payload,
-            wsData: { ...payload.wsData, jobId: job.jobId },
-          };
+
           try {
-            this.wsService.emitToSocket(
-              namespace,
-              socketId,
-              event,
-              emitPayload,
+            const socketId = await this.presenceService.getSocketForDevice(
+              userId,
+              deviceId,
             );
+            if (!socketId) continue;
+
+            this.wsService.emitToSocket(namespace, socketId, event, wsPayload);
           } catch (err) {
             this.logger.error(
               `emitToSocket failed for ${userId}:${deviceId}`,
               err,
             );
-            if (
-              [
-                DeliveryStrategy.WS_THEN_PUSH,
-                DeliveryStrategy.PUSH_ONLY,
-              ].includes(job.options.strategy)
-            ) {
-              const {
-                data = {},
-                pushData = {},
-                wsData: _,
-                ...notification
-              } = payload;
-              const pushFinal = { ...data, ...pushData, event };
-              await this.sendPush(userId, deviceId, {
-                notification,
-                data: pushFinal,
-              });
-              await this.queueService.confirmDelivery(
-                job.jobId,
-                userId,
-                deviceId,
-              );
-            }
           }
         }
       }
@@ -128,10 +110,12 @@ export abstract class BaseRealtimeProcessor {
   }
 
   async process(job: Job<RealtimeJob>) {
-    const { userIds, event, payload, options } = job.data;
-    const { data = {}, wsData: _, pushData = {}, ...notification } = payload;
-    const { strategy, emitToUser } = options;
-    const pushFinal = { ...data, ...pushData, event };
+    const { userIds, event, options } = job.data;
+    const { strategy } = options;
+
+    const { pushData: pushPayload, notification } = getNotificationPayload(
+      job.data,
+    );
     try {
       switch (strategy) {
         case DeliveryStrategy.WS_ONLY: {
@@ -150,7 +134,7 @@ export abstract class BaseRealtimeProcessor {
             for (const deviceId of deviceIds.filter((id) => dedupMap[id])) {
               await this.sendPush(userId, deviceId, {
                 notification,
-                data: pushFinal,
+                data: pushPayload,
               });
             }
           }
@@ -158,35 +142,6 @@ export abstract class BaseRealtimeProcessor {
         }
         case DeliveryStrategy.WS_THEN_PUSH: {
           await this.emitToWs(job.data);
-          const offlineDevices: { userId: string; deviceId: string }[] = [];
-          if (emitToUser) {
-            for (const uid of userIds) {
-              const activeDevices =
-                await this.presenceService.getActiveDevices(uid);
-              const allDevices =
-                await this.userDeviceService.getDevicesByUserIds([uid]);
-              for (const dev of allDevices) {
-                if (!activeDevices.includes(dev.deviceToken)) {
-                  offlineDevices.push({
-                    userId: uid,
-                    deviceId: dev.deviceToken,
-                  });
-                }
-              }
-            }
-          }
-          for (const { userId, deviceId } of offlineDevices) {
-            const isNew = await this.realtimeStore.dedupSet(
-              job.data.jobId,
-              deviceId,
-              REALTIME_DEDUP_TTL_MS,
-            );
-            if (!isNew) continue;
-            await this.sendPush(userId, deviceId, {
-              notification,
-              data: pushFinal,
-            });
-          }
           break;
         }
         default:
