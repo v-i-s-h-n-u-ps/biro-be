@@ -44,6 +44,15 @@ export class UserDeviceService {
     await this.userDeviceRepo.save(device);
   }
 
+  async removeDevicesByTokens(tokens: string[]): Promise<void> {
+    await this.userDeviceRepo
+      .createQueryBuilder()
+      .update(UserDevice)
+      .set({ isActive: false })
+      .where('deviceToken IN (:...tokens)', { tokens })
+      .execute();
+  }
+
   async getDevicesByUser(user: User): Promise<UserDevice[]> {
     return this.userDeviceRepo.find({ where: { user, isActive: true } });
   }

@@ -8,6 +8,7 @@ export enum QueueName {
   NOTIFICATIONS = 'notifications',
   CHAT = 'chat',
   PENDING_SWEEP = 'pending-sweep',
+  FIREBASE_DELIVERY = 'firebase-delivery',
 }
 
 export enum WebSocketNamespace {
