@@ -26,7 +26,7 @@ import { FirebaseService } from './services/firebase.service';
           delay: FIREBASE_DELIVERY_BACKOFF_MS,
         },
         removeOnComplete: true,
-        removeOnFail: { count: 4_000 },
+        removeOnFail: { count: 4_000, age: 36_000 },
       },
     }),
     UsersModule,
