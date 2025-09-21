@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 
 import { QueueName } from 'src/common/constants/common.enum';
+import { UsersModule } from 'src/users/users.module';
 
 import {
   FIREBASE_DELIVERY_ATTEMPTS,
@@ -28,6 +29,7 @@ import { FirebaseService } from './services/firebase.service';
         removeOnFail: { count: 4_000 },
       },
     }),
+    UsersModule,
   ],
   providers: [
     {
