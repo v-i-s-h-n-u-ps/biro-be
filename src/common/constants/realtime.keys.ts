@@ -14,4 +14,7 @@ export const RealtimeKeys = {
   mutedNotifications: (userId: string) => `user:${userId}:muted_notifications`,
   // optional mapping key if needed
   pendingMapping: (jobId: string) => `realtime:pending:devices:${jobId}`,
+  pendingJobValue: (userId: string, deviceId: string, jobId: string) =>
+    `${userId}|${deviceId}|${jobId}`,
+  deviceKey: (userId: string, deviceId: string) => `${userId}:${deviceId}`,
 };

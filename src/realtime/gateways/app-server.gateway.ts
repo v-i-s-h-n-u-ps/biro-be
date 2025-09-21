@@ -15,7 +15,6 @@ import {
   ClientEvents,
   NotificationEvents,
 } from 'src/common/constants/notification-events.enum';
-import { RealtimeKeys } from 'src/common/constants/realtime.keys';
 import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
 import { type PresenceSocket } from 'src/common/types/socket.types';
@@ -164,27 +163,19 @@ export class AppServerGateway
               )
                 return;
 
-              const attemptData = await this.redisService.client.hget(
-                RealtimeKeys.devicePendingHash(userId, deviceId),
-                jobId,
-              );
-              let attemptCount = 0;
-              if (attemptData) {
-                const [count] = attemptData.split('|');
-                attemptCount = parseInt(count) || 0;
-              }
+              const { count: attemptCount, timestamp } =
+                await this.presenceService
+                  .attemptCount(userId, deviceId, jobId)
+                  .get();
+
               if (attemptCount >= 10) {
                 this.logger.warn(
                   `Max retries (10) reached for ${jobId} -> ${userId}:${deviceId}`,
                 );
-                await this.presenceService.removePendingJob(
+                await this.presenceService.removePendingJobFully(
                   userId,
                   deviceId,
                   jobId,
-                );
-                await this.redisService.client.srem(
-                  RealtimeKeys.pendingMapping(jobId),
-                  `${userId}:${deviceId}`,
                 );
                 return;
               }
@@ -207,11 +198,9 @@ export class AppServerGateway
                   deviceId,
                 );
               } catch (err) {
-                await this.redisService.client.hset(
-                  RealtimeKeys.devicePendingHash(userId, deviceId),
-                  jobId,
-                  `${attemptCount + 1}|${attemptData?.split('|')[1] || Date.now()}`,
-                );
+                await this.presenceService
+                  .attemptCount(userId, deviceId, jobId)
+                  .set(attemptCount + 1, timestamp);
                 this.logger.warn(
                   `Push failed on disconnect for ${jobId} -> ${userId}:${deviceId} (attempt ${attemptCount + 1}): ${JSON.stringify(err)}`,
                 );

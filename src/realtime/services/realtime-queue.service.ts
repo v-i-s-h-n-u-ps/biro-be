@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import pLimit from 'p-limit';
 
-import { RealtimeKeys } from 'src/common/constants/realtime.keys';
 import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
 
@@ -29,12 +28,13 @@ export class RealtimeQueueService {
     const emittedDevices: string[] = [];
     if (deviceIds?.length) {
       deviceIds = deviceIds.filter((id) => id?.trim());
+      const devicesToDedup = deviceIds?.length ? deviceIds : ['global'];
       const dedupMap = await this.presence.dedupMultiSet(
         job.jobId,
-        deviceIds,
+        devicesToDedup,
         REALTIME_DEDUP_TTL_MS,
       );
-      emittedDevices.push(...deviceIds.filter((id) => dedupMap[id]));
+      emittedDevices.push(...devicesToDedup.filter((id) => dedupMap[id]));
     } else {
       const dedupMap = await this.presence.dedupMultiSet(
         job.jobId,
@@ -45,14 +45,7 @@ export class RealtimeQueueService {
     }
     if (emittedDevices.length) {
       try {
-        await this.redis.withTransaction((multi) => {
-          multi.set(
-            RealtimeKeys.jobKey(job.jobId),
-            JSON.stringify(job),
-            'EX',
-            REALTIME_JOB_TTL_SECONDS,
-          );
-        });
+        await this.presence.storeJob(job.jobId, job, REALTIME_JOB_TTL_SECONDS);
       } catch (err) {
         this.logger.error(`Failed to store job ${job.jobId}`, err);
       }
@@ -72,15 +65,6 @@ export class RealtimeQueueService {
       job.jobId,
       REALTIME_PENDING_TTL_SECONDS,
     );
-    const deviceKey = `${userId}:${deviceId}`;
-    await this.redis.client.sadd(
-      RealtimeKeys.pendingMapping(job.jobId),
-      deviceKey,
-    );
-    await this.redis.client.expire(
-      RealtimeKeys.pendingMapping(job.jobId),
-      REALTIME_JOB_TTL_SECONDS * 1.5,
-    );
   }
 
   async flushPendingForDevice(
@@ -96,11 +80,9 @@ export class RealtimeQueueService {
       await this.redis.withLock(
         `pending:${userId}:${deviceId}:${jobId}`,
         async () => {
-          const deviceKey = `${userId}:${deviceId}`;
-          const removed = await this.redis.client.srem(
-            RealtimeKeys.pendingMapping(jobId),
-            deviceKey,
-          );
+          const removed = await this.presence
+            .jobDeviceMapping(jobId)
+            .remove(userId, deviceId);
           if (!removed) return;
           const job = await this.presence.getJob(jobId);
           if (!job) {
@@ -125,26 +107,12 @@ export class RealtimeQueueService {
     await this.redis.withLock(
       `pending:${userId}:${deviceId}:${jobId}`,
       async () => {
-        await this.presence.removePendingJob(userId, deviceId, jobId);
-        const deviceKey = `${userId}:${deviceId}`;
-        await this.redis.client.srem(
-          RealtimeKeys.pendingMapping(jobId),
-          deviceKey,
+        const cleaned = await this.presence.removePendingJobFully(
+          userId,
+          deviceId,
+          jobId,
         );
-        const lua = `
-        local key = KEYS[1]
-        if redis.call('SCARD', key) == 0 then
-          redis.call('DEL', key)
-          return 1
-        end
-        return 0
-      `;
-        const shouldCleanup = await this.redis.client.eval(
-          lua,
-          1,
-          RealtimeKeys.pendingMapping(jobId),
-        );
-        if (shouldCleanup) {
+        if (cleaned) {
           await this.presence.deleteJob(jobId);
           await this.presence.dedupDelete(jobId);
         } else {
@@ -191,22 +159,17 @@ export class RealtimeQueueService {
               const job = await this.presence.getJob(jobId);
               if (!job) return;
 
-              const hashKey = RealtimeKeys.devicePendingHash(userId, deviceId);
-              const attemptData = await this.redis.client.hget(hashKey, jobId);
-              let attemptCount = 0;
-              if (attemptData) {
-                const [count] = attemptData.split('|');
-                attemptCount = parseInt(count) || 0;
-              }
+              const { count: attemptCount, timestamp } = await this.presence
+                .attemptCount(userId, deviceId, jobId)
+                .get();
               if (attemptCount >= 10) {
                 this.logger.warn(
                   `Max retries (10) reached for ${jobId} -> ${userId}:${deviceId}`,
                 );
                 await this.presence.removePendingJob(userId, deviceId, jobId);
-                await this.redis.client.srem(
-                  RealtimeKeys.pendingMapping(jobId),
-                  `${userId}:${deviceId}`,
-                );
+                await this.presence
+                  .jobDeviceMapping(jobId)
+                  .remove(userId, deviceId);
                 return;
               }
 
@@ -214,36 +177,15 @@ export class RealtimeQueueService {
                 await sendPushFn(userId, deviceId, job);
                 await this.confirmDelivery(jobId, userId, deviceId);
 
-                const lua = `
-                local mappingKey = KEYS[1]
-                local jobKey = KEYS[2]
-                local jobId = ARGV[1]
-                local device = ARGV[2]
-                redis.call('SREM', mappingKey, device)
-                if redis.call('SCARD', mappingKey) == 0 then
-                  redis.call('DEL', jobKey)
-                end
-                return 1
-              `;
-                const mappingKey = RealtimeKeys.pendingMapping(jobId);
-                const jobKey = RealtimeKeys.jobKey(jobId);
-                const deviceKey = `${userId}:${deviceId}`;
-                await this.redis.client.eval(
-                  lua,
-                  2,
-                  mappingKey,
-                  jobKey,
+                await this.presence.removePendingJobFully(
+                  userId,
+                  deviceId,
                   jobId,
-                  deviceKey,
                 );
-
-                await this.presence.removePendingJob(userId, deviceId, jobId);
               } catch (err) {
-                await this.redis.client.hset(
-                  hashKey,
-                  jobId,
-                  `${attemptCount + 1}|${attemptData?.split('|')[1] || Date.now()}`,
-                );
+                await this.presence
+                  .attemptCount(userId, deviceId, jobId)
+                  .set(attemptCount + 1, timestamp);
                 this.logger.warn(
                   `Push failed for ${jobId} -> ${userId}:${deviceId} (attempt ${attemptCount + 1})`,
                   err,

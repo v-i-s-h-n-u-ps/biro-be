@@ -94,11 +94,13 @@ export class RealtimeService {
   async muteNotification(userId: string, type: string, until?: Date) {
     if (!userId?.trim() || !type?.trim()) return;
     const key = RealtimeKeys.mutedNotifications(userId);
-    await this.redisService.client.sadd(key, type);
-    if (until) {
-      const ttl = Math.ceil((until.getTime() - Date.now()) / 1000);
-      if (ttl > 0) await this.redisService.client.expire(key, ttl);
-    }
+    await this.redisService.withTransaction((multi) => {
+      multi.sadd(key, type);
+      if (until) {
+        const ttl = Math.ceil((until.getTime() - Date.now()) / 1000);
+        if (ttl > 0) multi.expire(key, ttl);
+      }
+    });
   }
 
   /**
