@@ -24,6 +24,7 @@ import { UserDeviceService } from 'src/users/services/user-devices.service';
 import { REALTIME_RECONNECT_GRACE_MS } from '../constants/realtime.constants';
 import { RealtimeJob } from '../interfaces/realtime-job.interface';
 import { RealtimeQueueService } from '../services/realtime-queue.service';
+import { RealtimeStoreService } from '../services/realtime-store.service';
 
 @WebSocketGateway({
   cors: { origin: '*', methods: ['GET', 'POST'] },
@@ -42,6 +43,7 @@ export class AppServerGateway
     private readonly redisService: RedisService,
     private readonly userDeviceService: UserDeviceService,
     private readonly firebaseService: FirebaseService,
+    private readonly realtimeStore: RealtimeStoreService,
   ) {}
 
   private extractUserId(client: PresenceSocket): string | null {
@@ -134,7 +136,7 @@ export class AppServerGateway
         }
 
         // Immediate push for pending jobs
-        const jobIds = await this.presenceService.fetchPendingJobIds(
+        const jobIds = await this.realtimeStore.fetchPendingJobIds(
           userId,
           deviceId,
         );
@@ -151,12 +153,12 @@ export class AppServerGateway
           await this.redisService.withLock(
             `pending:${userId}:${deviceId}:${jobId}`,
             async () => {
-              const pendingIds = await this.presenceService.fetchPendingJobIds(
+              const pendingIds = await this.realtimeStore.fetchPendingJobIds(
                 userId,
                 deviceId,
               );
               if (!pendingIds.includes(jobId)) return;
-              const job = await this.presenceService.getJob(jobId);
+              const job = await this.realtimeStore.manageJob(jobId).get();
               if (
                 !job ||
                 job.options.strategy !== DeliveryStrategy.WS_THEN_PUSH
@@ -164,7 +166,7 @@ export class AppServerGateway
                 return;
 
               const { count: attemptCount, timestamp } =
-                await this.presenceService
+                await this.realtimeStore
                   .attemptCount(userId, deviceId, jobId)
                   .get();
 
@@ -172,7 +174,7 @@ export class AppServerGateway
                 this.logger.warn(
                   `Max retries (10) reached for ${jobId} -> ${userId}:${deviceId}`,
                 );
-                await this.presenceService.removePendingJobFully(
+                await this.realtimeStore.removePendingJobFully(
                   userId,
                   deviceId,
                   jobId,
@@ -198,7 +200,7 @@ export class AppServerGateway
                   deviceId,
                 );
               } catch (err) {
-                await this.presenceService
+                await this.realtimeStore
                   .attemptCount(userId, deviceId, jobId)
                   .set(attemptCount + 1, timestamp);
                 this.logger.warn(

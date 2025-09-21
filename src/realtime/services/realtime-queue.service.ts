@@ -11,13 +11,16 @@ import {
 } from '../constants/realtime.constants';
 import { RealtimeJob } from '../interfaces/realtime-job.interface';
 
+import { RealtimeStoreService } from './realtime-store.service';
+
 @Injectable()
 export class RealtimeQueueService {
   private readonly logger = new Logger(RealtimeQueueService.name);
 
   constructor(
-    private readonly redis: RedisService,
-    private readonly presence: PresenceService,
+    private readonly redisService: RedisService,
+    private readonly presenceService: PresenceService,
+    private readonly realtimeStore: RealtimeStoreService,
   ) {}
 
   async storeJobWithDedup(
@@ -29,14 +32,14 @@ export class RealtimeQueueService {
     if (deviceIds?.length) {
       deviceIds = deviceIds.filter((id) => id?.trim());
       const devicesToDedup = deviceIds?.length ? deviceIds : ['global'];
-      const dedupMap = await this.presence.dedupMultiSet(
+      const dedupMap = await this.realtimeStore.dedupMultiSet(
         job.jobId,
         devicesToDedup,
         REALTIME_DEDUP_TTL_MS,
       );
       emittedDevices.push(...devicesToDedup.filter((id) => dedupMap[id]));
     } else {
-      const dedupMap = await this.presence.dedupMultiSet(
+      const dedupMap = await this.realtimeStore.dedupMultiSet(
         job.jobId,
         ['global'],
         REALTIME_DEDUP_TTL_MS,
@@ -45,7 +48,9 @@ export class RealtimeQueueService {
     }
     if (emittedDevices.length) {
       try {
-        await this.presence.storeJob(job.jobId, job, REALTIME_JOB_TTL_SECONDS);
+        await this.realtimeStore
+          .manageJob(job.jobId)
+          .set(job, REALTIME_JOB_TTL_SECONDS);
       } catch (err) {
         this.logger.error(`Failed to store job ${job.jobId}`, err);
       }
@@ -59,7 +64,7 @@ export class RealtimeQueueService {
     job: RealtimeJob,
   ) {
     if (!userId?.trim() || !deviceId?.trim() || !job.jobId?.trim()) return;
-    await this.presence.addPendingJob(
+    await this.realtimeStore.addPendingJob(
       userId,
       deviceId,
       job.jobId,
@@ -72,21 +77,27 @@ export class RealtimeQueueService {
     deviceId: string,
     emitToSocketFn: (job: RealtimeJob, socketId: string) => void,
   ) {
-    const jobIds = await this.presence.fetchPendingJobIds(userId, deviceId);
+    const jobIds = await this.realtimeStore.fetchPendingJobIds(
+      userId,
+      deviceId,
+    );
     if (!jobIds.length) return;
-    const socketId = await this.presence.getSocketForDevice(userId, deviceId);
+    const socketId = await this.presenceService.getSocketForDevice(
+      userId,
+      deviceId,
+    );
     if (!socketId) return;
     for (const jobId of jobIds) {
-      await this.redis.withLock(
+      await this.redisService.withLock(
         `pending:${userId}:${deviceId}:${jobId}`,
         async () => {
-          const removed = await this.presence
+          const removed = await this.realtimeStore
             .jobDeviceMapping(jobId)
             .remove(userId, deviceId);
           if (!removed) return;
-          const job = await this.presence.getJob(jobId);
+          const job = await this.realtimeStore.manageJob(jobId).get();
           if (!job) {
-            await this.presence.removePendingJob(userId, deviceId, jobId);
+            await this.realtimeStore.removePendingJob(userId, deviceId, jobId);
             return;
           }
           try {
@@ -104,19 +115,19 @@ export class RealtimeQueueService {
 
   async confirmDelivery(jobId: string, userId: string, deviceId: string) {
     if (!jobId?.trim() || !userId?.trim() || !deviceId?.trim()) return;
-    await this.redis.withLock(
+    await this.redisService.withLock(
       `pending:${userId}:${deviceId}:${jobId}`,
       async () => {
-        const cleaned = await this.presence.removePendingJobFully(
+        const cleaned = await this.realtimeStore.removePendingJobFully(
           userId,
           deviceId,
           jobId,
         );
         if (cleaned) {
-          await this.presence.deleteJob(jobId);
-          await this.presence.dedupDelete(jobId);
+          await this.realtimeStore.manageJob(jobId).delete();
+          await this.realtimeStore.dedupDelete(jobId);
         } else {
-          await this.presence.dedupDelete(jobId, deviceId);
+          await this.realtimeStore.dedupDelete(jobId, deviceId);
         }
       },
     );
@@ -131,7 +142,8 @@ export class RealtimeQueueService {
     batchSize = 200,
     concurrency = 5,
   ) {
-    const entries = await this.presence.popExpiredPendingEntries(batchSize);
+    const entries =
+      await this.realtimeStore.popExpiredPendingEntries(batchSize);
     if (!entries.length) return;
 
     const limit = pLimit(concurrency);
@@ -142,32 +154,37 @@ export class RealtimeQueueService {
           const [userId, deviceId, jobId] = entry.split('|');
           if (!userId?.trim() || !deviceId?.trim() || !jobId?.trim()) return;
 
-          await this.redis.withLock(
+          await this.redisService.withLock(
             `pending:${userId}:${deviceId}:${jobId}`,
             async () => {
-              const pendingIds = await this.presence.fetchPendingJobIds(
+              const pendingIds = await this.realtimeStore.fetchPendingJobIds(
                 userId,
                 deviceId,
               );
               if (!pendingIds.includes(jobId)) return;
 
               const activeDevices =
-                await this.presence.getActiveDevices(userId);
+                await this.presenceService.getActiveDevices(userId);
               const isDeviceOnline = activeDevices.includes(deviceId);
               if (isDeviceOnline) return;
 
-              const job = await this.presence.getJob(jobId);
+              const job = await this.realtimeStore.manageJob(jobId).get();
               if (!job) return;
 
-              const { count: attemptCount, timestamp } = await this.presence
-                .attemptCount(userId, deviceId, jobId)
-                .get();
+              const { count: attemptCount, timestamp } =
+                await this.realtimeStore
+                  .attemptCount(userId, deviceId, jobId)
+                  .get();
               if (attemptCount >= 10) {
                 this.logger.warn(
                   `Max retries (10) reached for ${jobId} -> ${userId}:${deviceId}`,
                 );
-                await this.presence.removePendingJob(userId, deviceId, jobId);
-                await this.presence
+                await this.realtimeStore.removePendingJob(
+                  userId,
+                  deviceId,
+                  jobId,
+                );
+                await this.realtimeStore
                   .jobDeviceMapping(jobId)
                   .remove(userId, deviceId);
                 return;
@@ -177,13 +194,13 @@ export class RealtimeQueueService {
                 await sendPushFn(userId, deviceId, job);
                 await this.confirmDelivery(jobId, userId, deviceId);
 
-                await this.presence.removePendingJobFully(
+                await this.realtimeStore.removePendingJobFully(
                   userId,
                   deviceId,
                   jobId,
                 );
               } catch (err) {
-                await this.presence
+                await this.realtimeStore
                   .attemptCount(userId, deviceId, jobId)
                   .set(attemptCount + 1, timestamp);
                 this.logger.warn(

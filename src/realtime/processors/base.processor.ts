@@ -11,6 +11,7 @@ import { UserDeviceService } from 'src/users/services/user-devices.service';
 import { REALTIME_DEDUP_TTL_MS } from '../constants/realtime.constants';
 import { RealtimeJob } from '../interfaces/realtime-job.interface';
 import { RealtimeQueueService } from '../services/realtime-queue.service';
+import { RealtimeStoreService } from '../services/realtime-store.service';
 import { WebsocketService } from '../services/websocket.service';
 
 export abstract class BaseRealtimeProcessor {
@@ -22,6 +23,7 @@ export abstract class BaseRealtimeProcessor {
     private readonly firebaseService: FirebaseService,
     private readonly userDeviceService: UserDeviceService,
     private readonly queueService: RealtimeQueueService,
+    private readonly realtimeStore: RealtimeStoreService,
   ) {}
 
   private async sendPush(
@@ -47,7 +49,7 @@ export abstract class BaseRealtimeProcessor {
     // --- Emit to rooms ---
     if (options.emitToRoom && websocketRoomIds.length) {
       // Add global dedup for rooms
-      const isNew = await this.presenceService.dedupSet(
+      const isNew = await this.realtimeStore.dedupSet(
         job.jobId,
         'global',
         REALTIME_DEDUP_TTL_MS,
@@ -66,7 +68,7 @@ export abstract class BaseRealtimeProcessor {
       for (const userId of userIds) {
         const deviceIds = await this.presenceService.getActiveDevices(userId);
         if (!deviceIds.length) continue;
-        const dedupMap = await this.presenceService.dedupMultiSet(
+        const dedupMap = await this.realtimeStore.dedupMultiSet(
           job.jobId,
           deviceIds,
           REALTIME_DEDUP_TTL_MS,
@@ -140,7 +142,7 @@ export abstract class BaseRealtimeProcessor {
           for (const userId of userIds) {
             const deviceIds =
               await this.presenceService.getActiveDevices(userId);
-            const dedupMap = await this.presenceService.dedupMultiSet(
+            const dedupMap = await this.realtimeStore.dedupMultiSet(
               job.data.jobId,
               deviceIds,
               REALTIME_DEDUP_TTL_MS,
@@ -174,7 +176,7 @@ export abstract class BaseRealtimeProcessor {
             }
           }
           for (const { userId, deviceId } of offlineDevices) {
-            const isNew = await this.presenceService.dedupSet(
+            const isNew = await this.realtimeStore.dedupSet(
               job.data.jobId,
               deviceId,
               REALTIME_DEDUP_TTL_MS,

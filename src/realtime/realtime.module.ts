@@ -9,6 +9,11 @@ import { QueuesModule } from 'src/queues/queues.module';
 import { RideLocationService } from 'src/rides/services/ride-location.service';
 import { UsersModule } from 'src/users/users.module';
 
+import {
+  PENDING_SWEEP_INTERVAL_MS,
+  REALTIME_BACKOFF_DELAY_MS,
+  REALTIME_BULL_ATTEMPTS,
+} from './constants/realtime.constants';
 import { AppServerGateway } from './gateways/app-server.gateway';
 import { ChatGateway } from './gateways/chats.gateway';
 import { RideGateway } from './gateways/rides.gateway';
@@ -17,13 +22,14 @@ import { ChatProcessor } from './processors/chat.processor';
 import { PendingSweepProcessor } from './processors/pending-sweep.processor';
 import { RealtimeService } from './services/realtime.service';
 import { RealtimeQueueService } from './services/realtime-queue.service';
+import { RealtimeStoreService } from './services/realtime-store.service';
 import { WebsocketService } from './services/websocket.service';
 
 const defaultJobOptions = {
-  attempts: 3,
+  attempts: REALTIME_BULL_ATTEMPTS,
   backoff: {
     type: 'exponential',
-    delay: 5000,
+    delay: REALTIME_BACKOFF_DELAY_MS,
   },
   removeOnComplete: true,
   removeOnFail: 5,
@@ -36,7 +42,10 @@ const defaultJobOptions = {
     BullModule.registerQueue(
       { name: QueueName.NOTIFICATIONS, defaultJobOptions },
       { name: QueueName.CHAT, defaultJobOptions },
-      { name: QueueName.PENDING_SWEEP },
+      {
+        name: QueueName.PENDING_SWEEP,
+        defaultJobOptions: { removeOnComplete: true, removeOnFail: false },
+      },
     ),
   ],
   providers: [
@@ -52,6 +61,7 @@ const defaultJobOptions = {
     AppNotificationProcessor,
     ChatProcessor,
     PendingSweepProcessor,
+    RealtimeStoreService,
   ],
   exports: [RealtimeService, WebsocketService],
 })
@@ -66,7 +76,7 @@ export class RealtimeModule implements OnModuleInit {
       'sweep',
       {},
       {
-        repeat: { every: 1000 },
+        repeat: { every: PENDING_SWEEP_INTERVAL_MS },
         removeOnComplete: true,
         removeOnFail: true,
       },

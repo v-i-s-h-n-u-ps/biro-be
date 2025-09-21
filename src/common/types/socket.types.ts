@@ -6,6 +6,7 @@ export interface PresenceSocketData {
   userId?: string;
   deviceId?: string;
   user?: User;
+  lastConnectionTime?: number;
 }
 
 // Define the handshake auth structure

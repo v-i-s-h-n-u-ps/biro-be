@@ -6,13 +6,16 @@ import {
   QueueName,
   WebSocketNamespace,
 } from 'src/common/constants/common.enum';
-import { RealtimeKeys } from 'src/common/constants/realtime.keys';
 import { RedisService } from 'src/common/redis.service';
 
-import { REALTIME_BULL_ATTEMPTS } from '../constants/realtime.constants';
+import {
+  REALTIME_BACKOFF_DELAY_MS,
+  REALTIME_BULL_ATTEMPTS,
+} from '../constants/realtime.constants';
 import { RealtimeJob } from '../interfaces/realtime-job.interface';
 
 import { RealtimeQueueService } from './realtime-queue.service';
+import { RealtimeStoreService } from './realtime-store.service';
 
 @Injectable()
 export class RealtimeService {
@@ -25,12 +28,16 @@ export class RealtimeService {
     private readonly chatQueue: Queue<RealtimeJob>,
     private readonly redisService: RedisService,
     private readonly queueService: RealtimeQueueService,
+    private readonly realtimeStore: RealtimeStoreService,
   ) {}
 
   async sendAndForgetNotification(job: RealtimeJob, delayMs = 0) {
     if (!job.userIds?.length && !job.websocketRoomIds?.length) return;
     // 1) filter muted users
-    const filteredUserIds = await this.filterMutedUsers(job.userIds, job.event);
+    const filteredUserIds = await this.realtimeStore.filterMutedUsers(
+      job.userIds,
+      job.event,
+    );
     if (!filteredUserIds.length && !job.options.emitToRoom) return;
     job.userIds = filteredUserIds; // narrow down recipients
     job.createdAt = Date.now();
@@ -51,7 +58,7 @@ export class RealtimeService {
     // 4) push to appropriate Bull queue (server busy / background processing)
     const jobOptions = {
       attempts: REALTIME_BULL_ATTEMPTS,
-      backoff: 5000,
+      backoff: REALTIME_BACKOFF_DELAY_MS,
       delay: delayMs,
     };
     switch (job.namespace) {
@@ -70,45 +77,11 @@ export class RealtimeService {
     }
   }
 
-  /**
-   * Filter out users who have muted this notification type
-   */
-  private async filterMutedUsers(userIds: string[], type?: string) {
-    if (!type) return userIds.filter((id) => id?.trim());
-    const results = await Promise.all(
-      userIds.map(async (uid) => {
-        if (!uid?.trim()) return null;
-        const isMuted = await this.redisService.client.sismember(
-          RealtimeKeys.mutedNotifications(uid),
-          type,
-        );
-        return isMuted ? null : uid;
-      }),
-    );
-    return results.filter((id): id is string => !!id);
-  }
-
-  /**
-   * Add a type to muted notifications
-   */
   async muteNotification(userId: string, type: string, until?: Date) {
-    if (!userId?.trim() || !type?.trim()) return;
-    const key = RealtimeKeys.mutedNotifications(userId);
-    await this.redisService.withTransaction((multi) => {
-      multi.sadd(key, type);
-      if (until) {
-        const ttl = Math.ceil((until.getTime() - Date.now()) / 1000);
-        if (ttl > 0) multi.expire(key, ttl);
-      }
-    });
+    await this.realtimeStore.muteNotification(userId, type, until);
   }
 
-  /**
-   * Remove a type from muted notifications
-   */
   async unmuteNotification(userId: string, type: string) {
-    if (!userId?.trim() || !type?.trim()) return;
-    const key = RealtimeKeys.mutedNotifications(userId);
-    await this.redisService.client.srem(key, type);
+    await this.realtimeStore.unmuteNotification(userId, type);
   }
 }
