@@ -1,4 +1,4 @@
-import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
+import { Process, Processor } from '@nestjs/bull';
 import { Injectable } from '@nestjs/common';
 import { type Job } from 'bull';
 
@@ -38,13 +38,5 @@ export class ChatProcessor extends BaseRealtimeProcessor {
   @Process()
   async handle(job: Job<RealtimeJob>) {
     await this.process(job);
-  }
-
-  @OnQueueFailed()
-  onFailed(job: Job<RealtimeJob>, error: Error) {
-    this.logger.error(
-      `Chat job failed (id: ${job.id}, event: ${job.data.event}): ${error.message}`,
-      error.stack,
-    );
   }
 }
