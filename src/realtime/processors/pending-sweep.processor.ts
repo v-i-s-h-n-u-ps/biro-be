@@ -28,19 +28,11 @@ export class PendingSweepProcessor {
       'pending:sweep:lock',
       async () => {
         await this.queueService.sweepExpiredPendingAndFallback(
-          async (userId, deviceId, jobPayload) => {
+          async (_, deviceIds, jobPayload) => {
             if (jobPayload.options.strategy === DeliveryStrategy.WS_ONLY)
               return;
-            // Added deviceId
-            const devices = await this.userDeviceService.getDevicesByUserIds([
-              userId,
-            ]);
-            const token = devices.find(
-              (d) => d.deviceToken === deviceId,
-            )?.deviceToken;
-            if (!token) return;
             const payload = getNotificationPayload(jobPayload);
-            await this.firebaseService.sendNotificationToDevice(token, {
+            await this.firebaseService.sendNotificationToDevices(deviceIds, {
               notification: payload.notification,
               data: payload.pushData,
             });

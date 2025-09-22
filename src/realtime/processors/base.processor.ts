@@ -27,15 +27,8 @@ export abstract class BaseRealtimeProcessor {
     private readonly realtimeStore: RealtimeStoreService,
   ) {}
 
-  private async sendPush(
-    userId: string,
-    deviceId: string,
-    payload: MessagingPayload,
-  ) {
-    const devices = await this.userDeviceService.getDevicesByUserIds([userId]);
-    const token = devices.find((d) => d.deviceToken === deviceId)?.deviceToken;
-    if (!token) return;
-    await this.firebaseService.sendNotificationToDevice(token, payload);
+  private async sendPush(deviceIds: string[], payload: MessagingPayload) {
+    await this.firebaseService.sendNotificationToDevices(deviceIds, payload);
   }
 
   private dedupeArray<T>(arr?: T[]): T[] {
@@ -148,13 +141,18 @@ export abstract class BaseRealtimeProcessor {
               userId,
             ]);
             const deviceIds = devices.map((d) => d.deviceToken);
+
             const dedupMap = await this.realtimeStore.dedupMultiSet(
               job.data.jobId,
               deviceIds,
               REALTIME_DEDUP_TTL_MS,
             );
-            for (const deviceId of deviceIds.filter((id) => dedupMap[id])) {
-              await this.sendPush(userId, deviceId, {
+
+            // Keep only dedup-passing tokens
+            const dedupedDeviceIds = deviceIds.filter((id) => dedupMap[id]);
+
+            if (dedupedDeviceIds.length > 0) {
+              await this.sendPush(dedupedDeviceIds, {
                 notification,
                 data: pushPayload,
               });

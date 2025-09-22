@@ -210,31 +210,56 @@ export class FirebaseService {
     options: NotificationOptions = { type: 'normal' },
   ) {
     if (tokens.length === 0) return;
-    const message = this.getNotificationPayload(payload, options);
-    try {
-      const response = await this.firebaseAdmin
-        .messaging()
-        .sendEachForMulticast({ ...message, tokens });
+    if (!payload.data?.jobId)
+      payload.data = { ...payload.data, jobId: crypto.randomUUID() };
 
-      await Promise.all(
-        response.responses.map(async (resp, idx) => {
+    const chunks = this.chunkArray(tokens, this.maxBatchSize); // Firebase max 500
+    const message = this.getNotificationPayload(payload, options);
+
+    for (const chunk of chunks) {
+      try {
+        const response = await this.firebaseAdmin
+          .messaging()
+          .sendEachForMulticast({ ...message, tokens: chunk });
+
+        const retryableTokens: string[] = [];
+        const failedTokens: string[] = [];
+
+        response.responses.forEach((resp, idx) => {
+          const token = chunk[idx];
           if (!resp.success) {
-            if (!resp.success && this.isRetryableError(resp.error)) {
-              await this.queueFirebaseDelivery(
-                tokens[idx],
-                payload,
-                payload.data?.jobId,
-                options,
-              );
-            }
+            if (this.isRetryableError(resp.error)) retryableTokens.push(token);
+            failedTokens.push(token);
+
             this.logger.warn(
-              `Failed to send to token ${tokens[idx]}: ${resp.error?.message}`,
+              `Failed to send to token ${token}: ${resp.error?.message}`,
             );
           }
-        }),
-      );
-    } catch (err) {
-      this.logger.error(`Failed to send multicast notification: ${err}`);
+        });
+
+        if (retryableTokens.length > 0) {
+          await this.queueFirebaseDelivery(
+            retryableTokens,
+            payload,
+            payload.data.jobId,
+            options,
+          );
+        }
+
+        if (failedTokens.length > 0) {
+          this.logger.warn(
+            `Chunk of ${chunk.length} tokens completed with ${failedTokens.length} failures (sample: ${failedTokens.slice(0, 5).join(', ')})`,
+          );
+        }
+      } catch (err) {
+        this.logger.error(`Multicast chunk failed: `, err);
+        await this.queueFirebaseDelivery(
+          chunk,
+          payload,
+          payload.data.jobId,
+          options,
+        );
+      }
     }
   }
 

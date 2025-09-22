@@ -178,7 +178,7 @@ export class RealtimeQueueService {
   async sweepExpiredPendingAndFallback(
     sendPushFn: (
       userId: string,
-      deviceId: string,
+      deviceIds: string[],
       job: RealtimeJob,
     ) => Promise<void>,
     SWEEP_INTERVAL_MS: number,
@@ -194,96 +194,113 @@ export class RealtimeQueueService {
     const limit = pLimit(concurrency);
     const now = Date.now();
 
+    // Group by userId + jobId
+    const grouped = new Map<
+      string,
+      { userId: string; jobId: string; deviceIds: string[] }
+    >();
+
+    for (const entry of entries) {
+      const [userId, deviceId, jobId] = entry.split('|');
+      if (!userId?.trim() || !deviceId?.trim() || !jobId?.trim()) continue;
+
+      const key = `${userId}|${jobId}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, { userId, jobId, deviceIds: [] });
+      }
+      grouped.get(key).deviceIds.push(deviceId);
+    }
+
     await Promise.allSettled(
-      entries.map((entry) =>
+      Array.from(grouped.values()).map(({ userId, jobId, deviceIds }) =>
         limit(async () => {
-          const [userId, deviceId, jobId] = entry.split('|');
-          if (!userId?.trim() || !deviceId?.trim() || !jobId?.trim()) return;
+          const job = await this.realtimeStore.manageJob(jobId).get();
+          if (!job) {
+            // Clean up stale pending entries
+            await Promise.all(
+              deviceIds.map((deviceId) =>
+                this.realtimeStore.removePendingJob(userId, deviceId, jobId),
+              ),
+            );
+            return;
+          }
 
-          await this.redisService.withLock(
-            `pending:${userId}:${deviceId}:${jobId}`,
-            async () => {
-              const pendingIds = await this.realtimeStore.fetchPendingJobIds(
-                userId,
-                deviceId,
+          // Use the first device to check attempt/timestamp (all belong to same jobId)
+          const firstDeviceId = deviceIds[0];
+          const { count: attemptCount, timestamp } = await this.realtimeStore
+            .attemptCount(userId, firstDeviceId, jobId)
+            .get();
+
+          // Skip retry if job is too recent
+          if (now - timestamp < SWEEP_INTERVAL_MS / 2) return;
+
+          if (attemptCount >= MAX_RETRIES) {
+            this.logger.warn(
+              `Max retries (${MAX_RETRIES}) reached for ${jobId} -> ${userId} [${deviceIds.join(',')}]`,
+            );
+
+            await Promise.all(
+              deviceIds.map((deviceId) =>
+                this.confirmDelivery(jobId, userId, deviceId),
+              ),
+            );
+
+            try {
+              await sendPushFn(userId, deviceIds, job); // 👈 now batched per jobId
+            } catch (err) {
+              this.logger.error(
+                `Final push failed for ${jobId} -> ${userId} [${deviceIds.join(',')}]`,
+                err,
               );
-              if (!pendingIds.includes(jobId)) return;
+            }
+            return;
+          }
 
-              const job = await this.realtimeStore.manageJob(jobId).get();
-              if (!job) {
-                await this.realtimeStore.removePendingJob(
+          const activeDevices =
+            await this.presenceService.getActiveDevices(userId);
+
+          for (const deviceId of deviceIds) {
+            const isDeviceOnline = activeDevices.includes(deviceId);
+
+            try {
+              if (isDeviceOnline) {
+                const activeRoom = await this.presenceService.getActiveRoom(
                   userId,
                   deviceId,
-                  jobId,
                 );
-                return;
-              }
+                const isInRoom =
+                  job.roomId == null || activeRoom === job.roomId;
 
-              const { count: attemptCount, timestamp } =
-                await this.realtimeStore
-                  .attemptCount(userId, deviceId, jobId)
-                  .get();
-
-              // Skip retry if job is too recent (less than half sweep interval)
-              if (now - timestamp < SWEEP_INTERVAL_MS / 2) return;
-
-              if (attemptCount >= MAX_RETRIES) {
-                this.logger.warn(
-                  `Max retries (${MAX_RETRIES}) reached for ${jobId} -> ${userId}:${deviceId}`,
-                );
-                await this.confirmDelivery(jobId, userId, deviceId);
-                try {
-                  // Final push attempt as a fallback
-                  await sendPushFn(userId, deviceId, job);
-                } catch (err) {
-                  this.logger.error(
-                    `Final push failed for ${jobId} -> ${userId}:${deviceId}`,
-                    err,
-                  );
-                }
-                return;
-              }
-
-              const activeDevices =
-                await this.presenceService.getActiveDevices(userId);
-              const isDeviceOnline = activeDevices.includes(deviceId);
-
-              try {
-                if (isDeviceOnline) {
-                  const activeRoom = await this.presenceService.getActiveRoom(
-                    userId,
-                    deviceId,
-                  );
-                  const isInRoom =
-                    job.roomId == null || activeRoom === job.roomId;
-
-                  if (isInRoom) {
-                    // Online & correct room → WS delivered already, just confirm
-                    await this.confirmDelivery(jobId, userId, deviceId);
-                    return;
+                if (isInRoom) {
+                  await this.confirmDelivery(jobId, userId, deviceId);
+                } else {
+                  if (job.roomId == null) {
+                    await sendPushFn(userId, deviceIds, job);
+                    for (const d of deviceIds) {
+                      await this.confirmDelivery(jobId, userId, d);
+                    }
                   } else {
-                    // Online but wrong room → push immediately, no grace
-                    await sendPushFn(userId, deviceId, job);
+                    // 🎯 Room-specific job → push only to this device
+                    await sendPushFn(userId, [deviceId], job);
                     await this.confirmDelivery(jobId, userId, deviceId);
-                    return;
                   }
                 }
 
-                // Only send push if grace period passed
-                if (now - timestamp >= GRACE_PERIOD_MS) {
-                  await sendPushFn(userId, deviceId, job);
-                  await this.confirmDelivery(jobId, userId, deviceId);
-                  return;
-                }
-              } catch (err) {
-                this.logger.warn(
-                  `Retry failed for ${jobId} -> ${userId}:${deviceId} (attempt ${attemptCount})`,
-                  err,
-                );
+                continue;
               }
-            },
-            REDIS_LOCK_TTL_MS,
-          );
+
+              // Only send push if grace period passed
+              if (now - timestamp >= GRACE_PERIOD_MS) {
+                await sendPushFn(userId, [deviceId], job);
+                await this.confirmDelivery(jobId, userId, deviceId);
+              }
+            } catch (err) {
+              this.logger.warn(
+                `Retry failed for ${jobId} -> ${userId}:${deviceId} (attempt ${attemptCount})`,
+                err,
+              );
+            }
+          }
         }),
       ),
     );

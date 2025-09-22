@@ -20,13 +20,9 @@ export class FirebaseDeliveryProcessor {
     private readonly userDeviceService: UserDeviceService,
   ) {}
 
-  @Process('deliver')
+  @Process({ name: 'deliver', concurrency: 5 })
   async handleDelivery(job: Job<FirebaseDeliveryJob>) {
     const jobData = job.data;
-
-    this.logger.debug(
-      `Processing Firebase delivery job ${job.id}: ${jobData.tokens.length} tokens, attempt ${jobData.attempt || 1}`,
-    );
 
     const result = await this.firebaseService.processDeliveryJob(jobData);
 
