@@ -85,7 +85,7 @@ export class ConnectionsService {
       userIds,
       event,
       namespace: WebSocketNamespace.NOTIFICATIONS,
-      websocketRoomIds: [],
+      roomId: null,
       options: {
         strategy: DeliveryStrategy.PUSH_ONLY,
         emitToRoom: false,

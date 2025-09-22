@@ -32,7 +32,7 @@ export class RealtimeService {
   ) {}
 
   async sendAndForgetNotification(job: RealtimeJob, delayMs = 0) {
-    if (!job.userIds?.length && !job.websocketRoomIds?.length) return;
+    if (!job.userIds?.length && !job.roomId) return;
     // 1) filter muted users
     const filteredUserIds = await this.realtimeStore.filterMutedUsers(
       job.userIds,
