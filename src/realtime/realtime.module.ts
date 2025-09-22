@@ -14,8 +14,8 @@ import {
   REALTIME_BACKOFF_DELAY_MS,
   REALTIME_BULL_ATTEMPTS,
 } from './constants/realtime.constants';
-import { AppServerGateway } from './gateways/app-server.gateway';
 import { ChatGateway } from './gateways/chats.gateway';
+import { NotificationsGateway } from './gateways/notifications.gateway';
 import { RideGateway } from './gateways/rides.gateway';
 import { AppNotificationProcessor } from './processors/app-notification.processor';
 import { ChatProcessor } from './processors/chat.processor';
@@ -54,7 +54,7 @@ const defaultJobOptions = {
     RealtimeService,
     RealtimeQueueService,
     WebsocketService,
-    AppServerGateway,
+    NotificationsGateway,
     ChatGateway,
     RideGateway,
     RideLocationService,

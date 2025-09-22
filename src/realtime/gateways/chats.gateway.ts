@@ -1,9 +1,12 @@
+import { OnModuleInit } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
   SubscribeMessage,
   WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
+import { Server } from 'socket.io';
 
 import { WebSocketNamespace } from 'src/common/constants/common.enum';
 import { ClientEvents } from 'src/common/constants/notification-events.enum';
@@ -15,16 +18,24 @@ import {
   REALTIME_ACTIVE_ROOM_TTL_SECONDS,
   REDIS_LOCK_TTL_MS,
 } from '../constants/realtime.constants';
+import { RealtimeQueueService } from '../services/realtime-queue.service';
+import { WebsocketService } from '../services/websocket.service';
 
-@WebSocketGateway({
-  cors: { origin: '*' },
-  namespace: WebSocketNamespace.CHAT,
-})
-export class ChatGateway {
+import { BaseGateway } from './base.gateway';
+
+@WebSocketGateway({ cors: { origin: '*' }, port: 3001 })
+export class ChatGateway extends BaseGateway implements OnModuleInit {
   constructor(
-    private readonly presenceService: PresenceService,
-    private readonly redisService: RedisService,
-  ) {}
+    presenceService: PresenceService,
+    queueService: RealtimeQueueService,
+    redisService: RedisService,
+    wsService: WebsocketService,
+  ) {
+    super(presenceService, queueService, redisService, wsService);
+  }
+
+  @WebSocketServer()
+  server: Server;
 
   @SubscribeMessage(ClientEvents.JOIN_CHAT)
   async handleJoinChat(
@@ -72,6 +83,10 @@ export class ChatGateway {
       REDIS_LOCK_TTL_MS,
     );
     await client.leave(room);
+  }
+
+  onModuleInit() {
+    this.wsService.registerGateway(WebSocketNamespace.CHAT, this.server);
   }
 
   // @SubscribeMessage('MESSAGE_DELIVERED')

@@ -1,19 +1,7 @@
-import { Logger } from '@nestjs/common';
-import {
-  ConnectedSocket,
-  MessageBody,
-  OnGatewayConnection,
-  OnGatewayDisconnect,
-  SubscribeMessage,
-  WebSocketGateway,
-  WebSocketServer,
-} from '@nestjs/websockets';
-import { Server } from 'socket.io';
+import { OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
 
-import {
-  ClientEvents,
-  NotificationEvents,
-} from 'src/common/constants/notification-events.enum';
+import { WebSocketNamespace } from 'src/common/constants/common.enum';
+import { NotificationEvents } from 'src/common/constants/notification-events.enum';
 import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
 import { type PresenceSocket } from 'src/common/types/socket.types';
@@ -24,22 +12,16 @@ import {
 } from '../constants/realtime.constants';
 import { RealtimeJob } from '../interfaces/realtime-job.interface';
 import { RealtimeQueueService } from '../services/realtime-queue.service';
+import { WebsocketService } from '../services/websocket.service';
 
-@WebSocketGateway({
-  cors: { origin: '*', methods: ['GET', 'POST'] },
-})
-export class AppServerGateway
+export abstract class BaseGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
-  @WebSocketServer()
-  server: Server;
-
-  private logger = new Logger(AppServerGateway.name);
-
   constructor(
-    private readonly presenceService: PresenceService,
-    private readonly queueService: RealtimeQueueService,
-    private readonly redisService: RedisService,
+    protected readonly presenceService: PresenceService,
+    protected readonly queueService: RealtimeQueueService,
+    protected readonly redisService: RedisService,
+    protected readonly wsService: WebsocketService,
   ) {}
 
   private extractUserId(client: PresenceSocket): string | null {
@@ -68,9 +50,12 @@ export class AppServerGateway
       `user:${userId}:presence`,
       async () => {
         await this.presenceService.addConnection(userId, deviceId, client.id);
-        this.server
-          .to(`user:${userId}`)
-          .emit(NotificationEvents.NOTIFICATION_USER_ONLINE, { userId });
+        await this.wsService.emitToUser(
+          WebSocketNamespace.NOTIFICATIONS,
+          userId,
+          NotificationEvents.NOTIFICATION_USER_ONLINE,
+          { userId },
+        );
       },
       REDIS_LOCK_TTL_MS,
     );
@@ -92,10 +77,12 @@ export class AppServerGateway
           ...notification,
           jobId: job.jobId,
         };
-        this.server
-          .of(`/${job.namespace}`)
-          .to(socketId)
-          .emit(job.event, wsDataFinal);
+        this.wsService.emitToSocket(
+          job.namespace,
+          socketId,
+          job.event,
+          wsDataFinal,
+        );
       },
     );
   }
@@ -129,24 +116,15 @@ export class AppServerGateway
         const activeDevices =
           await this.presenceService.getActiveDevices(userId);
         if (activeDevices.length === 0) {
-          this.server
-            .to(`user:${userId}`)
-            .emit(NotificationEvents.NOTIFICATION_USER_OFFLINE, { userId });
+          await this.wsService.emitToUser(
+            WebSocketNamespace.NOTIFICATIONS,
+            userId,
+            NotificationEvents.NOTIFICATION_USER_OFFLINE,
+            { userId },
+          );
         }
       },
       REDIS_LOCK_TTL_MS,
     );
-  }
-
-  @SubscribeMessage(ClientEvents.ACKNOWLEDGED)
-  async handleAckDelivery(
-    @ConnectedSocket() client: PresenceSocket,
-    @MessageBody() data: { jobId: string },
-  ) {
-    const userId = client.data?.userId;
-    const deviceId = client.data?.deviceId;
-    const { jobId } = data;
-    if (!userId?.trim() || !deviceId?.trim() || !jobId?.trim()) return;
-    await this.queueService.confirmDelivery(jobId, userId, deviceId);
   }
 }

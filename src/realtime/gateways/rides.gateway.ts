@@ -1,32 +1,46 @@
-import { UseGuards } from '@nestjs/common';
+import { OnModuleInit } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
   SubscribeMessage,
   WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
+import { Server } from 'socket.io';
 
-import { WsFirebaseAuthGuard } from 'src/authentication/guards/ws-firebase-auth.guard';
 import { WebSocketNamespace } from 'src/common/constants/common.enum';
 import {
   ClientEvents,
   NotificationEvents,
 } from 'src/common/constants/notification-events.enum';
+import { PresenceService } from 'src/common/presence.service';
+import { RedisService } from 'src/common/redis.service';
 import { type PresenceSocket } from 'src/common/types/socket.types';
 import { WebsocketService } from 'src/realtime/services/websocket.service';
 
 import { RideLocationService } from '../../rides/services/ride-location.service';
+import { RealtimeQueueService } from '../services/realtime-queue.service';
 
-@WebSocketGateway({
-  cors: { origin: '*' },
-  namespace: WebSocketNamespace.RIDE,
-})
-@UseGuards(WsFirebaseAuthGuard)
-export class RideGateway {
+import { BaseGateway } from './base.gateway';
+
+@WebSocketGateway({ cors: { origin: '*' }, port: 3003 })
+export class RideGateway extends BaseGateway implements OnModuleInit {
   constructor(
+    presenceService: PresenceService,
+    queueService: RealtimeQueueService,
+    redisService: RedisService,
+    wsService: WebsocketService, // inject central service
     private readonly rideLocationService: RideLocationService,
-    private readonly wsService: WebsocketService, // inject central service
-  ) {}
+  ) {
+    super(presenceService, queueService, redisService, wsService);
+  }
+
+  @WebSocketServer()
+  server: Server;
+
+  onModuleInit() {
+    this.wsService.registerGateway(WebSocketNamespace.RIDE, this.server);
+  }
 
   @SubscribeMessage(ClientEvents.JOIN_RIDE)
   async handleJoinRide(

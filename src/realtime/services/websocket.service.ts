@@ -1,16 +1,18 @@
 import { Injectable } from '@nestjs/common';
+import { Server } from 'socket.io';
 
 import { WebSocketNamespace } from 'src/common/constants/common.enum';
 import { PresenceService } from 'src/common/presence.service';
 
-import { AppServerGateway } from '../gateways/app-server.gateway';
-
 @Injectable()
 export class WebsocketService {
-  constructor(
-    private readonly appServerGateway: AppServerGateway,
-    private readonly presenceService: PresenceService,
-  ) {}
+  private readonly gateways: Partial<Record<WebSocketNamespace, Server>> = {};
+
+  constructor(private readonly presenceService: PresenceService) {}
+
+  registerGateway(namespace: WebSocketNamespace, gateway: Server) {
+    this.gateways[namespace] = gateway;
+  }
 
   emitToRoom(
     namespace: WebSocketNamespace,
@@ -18,10 +20,7 @@ export class WebsocketService {
     event: string,
     payload: unknown,
   ) {
-    this.appServerGateway.server
-      .of(`/${namespace}`)
-      .to(room)
-      .emit(event, payload);
+    this.gateways[namespace].to(room).emit(event, payload);
   }
 
   async emitToUser(
@@ -34,10 +33,7 @@ export class WebsocketService {
     const sockets = await this.presenceService.getActiveSockets(userId);
     if (sockets.length === 0) return;
     sockets.forEach((socketId) =>
-      this.appServerGateway.server
-        .of(`/${namespace}`)
-        .to(socketId)
-        .emit(event, payload),
+      this.emitToSocket(namespace, socketId, event, payload),
     );
   }
 
@@ -48,9 +44,6 @@ export class WebsocketService {
     payload: unknown,
   ) {
     if (!socketId?.trim()) return;
-    this.appServerGateway.server
-      .of(`/${namespace}`)
-      .to(socketId)
-      .emit(event, payload);
+    this.gateways[namespace].to(socketId).emit(event, payload);
   }
 }
