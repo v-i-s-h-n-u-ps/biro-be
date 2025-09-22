@@ -8,6 +8,7 @@ import {
   REALTIME_DEDUP_TTL_MS,
   REALTIME_JOB_TTL_SECONDS,
   REALTIME_PENDING_TTL_SECONDS,
+  REDIS_LOCK_TTL_MS,
 } from '../constants/realtime.constants';
 import { RealtimeJob } from '../interfaces/realtime-job.interface';
 
@@ -132,6 +133,23 @@ export class RealtimeQueueService {
             );
           }
         },
+        REDIS_LOCK_TTL_MS,
+      );
+    }
+  }
+
+  async handleJobFailure(jobId: string, error: Error): Promise<void> {
+    this.logger.error(`Job ${jobId} failed permanently:`, error);
+
+    try {
+      const cleanedCount = await this.realtimeStore.cleanupFailedJob(jobId);
+      this.logger.log(
+        `Cleaned up ${cleanedCount} pending entries for failed job ${jobId}`,
+      );
+    } catch (cleanupError) {
+      this.logger.error(
+        `Failed to cleanup job ${jobId} after failure:`,
+        cleanupError,
       );
     }
   }
@@ -153,6 +171,7 @@ export class RealtimeQueueService {
           await this.realtimeStore.dedupDelete(jobId, deviceId);
         }
       },
+      REDIS_LOCK_TTL_MS,
     );
   }
 
@@ -263,6 +282,7 @@ export class RealtimeQueueService {
                 );
               }
             },
+            REDIS_LOCK_TTL_MS,
           );
         }),
       ),

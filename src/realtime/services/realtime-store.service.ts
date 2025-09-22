@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import pLimit from 'p-limit';
 
 import { RealtimeKeys } from 'src/common/constants/realtime.keys';
 import { RedisService } from 'src/common/redis.service';
@@ -22,6 +23,7 @@ export class RealtimeStoreService {
       local hashKey = KEYS[1]
       local zsetKey = KEYS[2]
       local mappingSetKey = KEYS[3]
+      local jobDevicesKey = KEYS[4]  -- NEW: job devices mapping
       local jobId = ARGV[1]
       local enqueuedAt = ARGV[2]
       local ttl = tonumber(ARGV[3])
@@ -40,15 +42,20 @@ export class RealtimeStoreService {
       redis.call('SADD', mappingSetKey, deviceKey)
       redis.call('EXPIRE', mappingSetKey, ttl * 1.5)
 
+      -- NEW: Track this device for the job
+      redis.call('SADD', jobDevicesKey, deviceKey)
+      redis.call('EXPIRE', jobDevicesKey, ttl * 2)
+
       return 1
     `;
 
     await this.redisService.client.eval(
       lua,
-      3,
+      4, // Changed from 3 to 4
       RealtimeKeys.devicePendingHash(userId, deviceId),
       RealtimeKeys.pendingExpiryZset(),
       RealtimeKeys.pendingMapping(jobId),
+      RealtimeKeys.jobDevicesMapping(jobId), // NEW key
       jobId,
       Date.now().toString(),
       ttlSeconds,
@@ -162,6 +169,7 @@ export class RealtimeStoreService {
       local zsetKey = KEYS[2]
       local mappingKey = KEYS[3]
       local jobKey = KEYS[4]
+      local jobDevicesKey = KEYS[5]  -- NEW
       local jobId = ARGV[1]
       local device = ARGV[2]
       local pendingValue = ARGV[3]
@@ -172,20 +180,26 @@ export class RealtimeStoreService {
       redis.call('ZREM', zsetKey, pendingValue)
       -- remove device from mapping set
       redis.call('SREM', mappingKey, device)
-      -- if set is empty, delete job key
+      -- NEW: remove device from job devices mapping
+      redis.call('SREM', jobDevicesKey, device)
+
+      -- if set is empty, delete job key and devices mapping
       if redis.call('SCARD', mappingKey) == 0 then
         redis.call('DEL', jobKey)
+        redis.call('DEL', jobDevicesKey)  -- NEW
       end
+
       return 1
     `;
 
     return await this.redisService.client.eval(
       lua,
-      4,
+      5,
       hashKey,
       zsetKey,
       mappingKey,
       jobKey,
+      RealtimeKeys.jobDevicesMapping(jobId), // NEW
       jobId,
       deviceKey,
       pendingValue,
@@ -193,6 +207,9 @@ export class RealtimeStoreService {
   }
 
   attemptCount(userId: string, deviceId: string, jobId: string) {
+    if (!userId?.trim() || !deviceId?.trim() || !jobId?.trim())
+      throw new Error('Invalid parameters');
+
     const hashKey = RealtimeKeys.devicePendingHash(userId, deviceId);
 
     const lua = `
@@ -407,6 +424,97 @@ export class RealtimeStoreService {
         RealtimeKeys.dedupKey(jobId, 'global'),
       );
     }
+  }
+
+  // In RealtimeStoreService
+  async cleanupFailedJob(jobId: string): Promise<number> {
+    if (!jobId?.trim()) return 0;
+
+    const jobDevicesKey = RealtimeKeys.jobDevicesMapping(jobId);
+    const jobKey = RealtimeKeys.jobKey(jobId);
+    const zsetKey = RealtimeKeys.pendingExpiryZset();
+
+    const lua = `
+      local jobDevicesKey = KEYS[1]
+      local jobKey = KEYS[2]
+      local zsetKey = KEYS[3]
+      local jobId = ARGV[1]
+
+      -- Get all devices associated with this job
+      local devices = redis.call('SMEMBERS', jobDevicesKey)
+      local cleanedCount = 0
+
+      for i, deviceKey in ipairs(devices) do
+        -- Parse userId and deviceId from deviceKey (format: "userId:deviceId")
+        local colonPos = string.find(deviceKey, ":")
+        if colonPos then
+          local userId = string.sub(deviceKey, 1, colonPos - 1)
+          local deviceId = string.sub(deviceKey, colonPos + 1)
+
+          if userId and deviceId then
+            local hashKey = "presence:user:" .. userId .. ":device:" .. deviceId .. ":pending"
+            local pendingValue = userId .. "|" .. deviceId .. "|" .. jobId
+
+            -- Remove from device pending hash
+            redis.call('HDEL', hashKey, jobId)
+
+            -- Remove from expiry zset
+            redis.call('ZREM', zsetKey, pendingValue)
+
+            cleanedCount = cleanedCount + 1
+          end
+        end
+      end
+
+      -- Clean up all job-related keys
+      redis.call('DEL', jobDevicesKey)
+      redis.call('DEL', jobKey)
+
+      -- Remove any deduplication keys
+      local dedupPattern = "realtime:dedup:" .. jobId .. ":*"
+      local dedupKeys = redis.call('KEYS', dedupPattern)
+      for i, key in ipairs(dedupKeys) do
+        redis.call('DEL', key)
+      end
+
+      -- Remove global dedup key
+      redis.call('DEL', "realtime:dedup:" .. jobId .. ":global")
+
+      return cleanedCount
+    `;
+
+    try {
+      const result = await this.redisService.client.eval(
+        lua,
+        3,
+        jobDevicesKey,
+        jobKey,
+        zsetKey,
+        jobId,
+      );
+
+      return Number(result) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  // Alternative method for batch cleanup of multiple failed jobs
+  async cleanupFailedJobs(
+    jobIds: string[],
+  ): Promise<{ [jobId: string]: number }> {
+    const results: { [jobId: string]: number } = {};
+
+    // Process jobs with limited concurrency to avoid overwhelming Redis
+    const limit = pLimit(5); // Limit to 5 concurrent cleanups
+    const cleanupPromises = jobIds.map((jobId) =>
+      limit(async () => {
+        results[jobId] = await this.cleanupFailedJob(jobId);
+      }),
+    );
+
+    await Promise.allSettled(cleanupPromises);
+    return results;
   }
 
   async filterMutedUsers(userIds: string[], type?: string) {

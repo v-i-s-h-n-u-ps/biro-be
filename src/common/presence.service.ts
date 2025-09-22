@@ -124,9 +124,10 @@ export class PresenceService {
 
       return results
     `;
-    const args = userDevicePairs.map(
-      (pair) => `${pair.userId}|${pair.deviceId}`,
+    const validPairs = userDevicePairs.filter(
+      (pair) => pair.userId?.trim() && pair.deviceId?.trim(),
     );
+    const args = validPairs.map((pair) => `${pair.userId}|${pair.deviceId}`);
     await this.redisService.client.eval(lua, 0, ...args);
   }
 
@@ -134,9 +135,12 @@ export class PresenceService {
     if (!userId?.trim()) return [];
     // Use HSCAN for large hashes instead of HKEYS
     const devices: string[] = [];
+    const MAX_ITERATIONS = 1000;
+    let iterations = 0;
     let cursor = '0';
     let keys: string[] = [];
     do {
+      iterations++;
       const [newCursor, fields] = await this.redisService.client.hscan(
         RealtimeKeys.userDevices(userId),
         cursor,
@@ -146,7 +150,12 @@ export class PresenceService {
       keys = [...fields];
       cursor = newCursor;
       devices.push(...keys.filter((_, i) => i % 2 === 0)); // keys are at even indices
-    } while (cursor !== '0' && devices.length < 1000 && keys.length > 0); // safety limit
+    } while (
+      cursor !== '0' &&
+      devices.length < 1000 &&
+      keys.length > 0 &&
+      iterations < MAX_ITERATIONS
+    ); // safety limit
     return devices;
   }
 

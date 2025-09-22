@@ -12,6 +12,7 @@ export const RealtimeKeys = {
   dedupKey: (jobId: string, deviceId: string) =>
     `realtime:dedup:${jobId}:${deviceId}`,
   mutedNotifications: (userId: string) => `user:${userId}:muted_notifications`,
+  jobDevicesMapping: (jobId: string) => `realtime:job:${jobId}:devices`,
   // optional mapping key if needed
   pendingMapping: (jobId: string) => `realtime:pending:devices:${jobId}`,
   pendingJobValue: (userId: string, deviceId: string, jobId: string) =>

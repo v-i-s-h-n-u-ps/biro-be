@@ -11,7 +11,10 @@ import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
 import { type PresenceSocket } from 'src/common/types/socket.types';
 
-import { REALTIME_ACTIVE_ROOM_TTL_SECONDS } from '../constants/realtime.constants';
+import {
+  REALTIME_ACTIVE_ROOM_TTL_SECONDS,
+  REDIS_LOCK_TTL_MS,
+} from '../constants/realtime.constants';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -44,9 +47,10 @@ export class ChatGateway {
           userId,
           deviceId,
           room,
-          REALTIME_ACTIVE_ROOM_TTL_SECONDS * 1000,
+          REALTIME_ACTIVE_ROOM_TTL_SECONDS,
         );
       },
+      REDIS_LOCK_TTL_MS,
     );
     await client.join(room);
   }
@@ -65,6 +69,7 @@ export class ChatGateway {
       async () => {
         await this.presenceService.updateActiveRoom(userId, deviceId, '', 0);
       },
+      REDIS_LOCK_TTL_MS,
     );
     await client.leave(room);
   }

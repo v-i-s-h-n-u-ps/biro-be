@@ -8,15 +8,13 @@ import { UserDeviceService } from 'src/users/services/user-devices.service';
 import {
   PENDING_SWEEP_INTERVAL_MS,
   REALTIME_RECONNECT_GRACE_MS,
+  REDIS_LOCK_TTL_MS,
 } from '../constants/realtime.constants';
 import { RealtimeQueueService } from '../services/realtime-queue.service';
 import { getNotificationPayload } from '../utils/payload.helper';
 
 @Processor(QueueName.PENDING_SWEEP) // this queue is used only for the repeatable sweep job
 export class PendingSweepProcessor {
-  private readonly sweepLockKey = 'pending:sweep:lock';
-  private readonly lockTTL = 5000;
-
   constructor(
     private readonly queueService: RealtimeQueueService,
     private readonly firebaseService: FirebaseService,
@@ -27,7 +25,7 @@ export class PendingSweepProcessor {
   @Process('sweep')
   async handle() {
     return this.redisService.withLock(
-      this.sweepLockKey,
+      'pending:sweep:lock',
       async () => {
         await this.queueService.sweepExpiredPendingAndFallback(
           async (userId, deviceId, jobPayload) => {
@@ -51,7 +49,7 @@ export class PendingSweepProcessor {
           REALTIME_RECONNECT_GRACE_MS,
         );
       },
-      this.lockTTL,
+      REDIS_LOCK_TTL_MS,
     );
   }
 }

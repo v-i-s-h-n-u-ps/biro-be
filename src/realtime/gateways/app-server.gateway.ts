@@ -18,7 +18,10 @@ import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
 import { type PresenceSocket } from 'src/common/types/socket.types';
 
-import { REALTIME_RECONNECT_GRACE_MS } from '../constants/realtime.constants';
+import {
+  REALTIME_RECONNECT_GRACE_MS,
+  REDIS_LOCK_TTL_MS,
+} from '../constants/realtime.constants';
 import { RealtimeJob } from '../interfaces/realtime-job.interface';
 import { RealtimeQueueService } from '../services/realtime-queue.service';
 
@@ -61,12 +64,16 @@ export class AppServerGateway
       return;
     }
     client.data.deviceId = deviceId;
-    await this.redisService.withLock(`user:${userId}:presence`, async () => {
-      await this.presenceService.addConnection(userId, deviceId, client.id);
-      this.server
-        .to(`user:${userId}`)
-        .emit(NotificationEvents.NOTIFICATION_USER_ONLINE, { userId });
-    });
+    await this.redisService.withLock(
+      `user:${userId}:presence`,
+      async () => {
+        await this.presenceService.addConnection(userId, deviceId, client.id);
+        this.server
+          .to(`user:${userId}`)
+          .emit(NotificationEvents.NOTIFICATION_USER_ONLINE, { userId });
+      },
+      REDIS_LOCK_TTL_MS,
+    );
     client.data['lastConnectionTime'] = Date.now();
 
     await this.queueService.flushPendingForDevice(
@@ -100,36 +107,35 @@ export class AppServerGateway
 
     const disconnectTime = Date.now();
 
-    const currentSocket = await this.presenceService.getSocketForDevice(
-      userId,
-      deviceId,
+    await this.redisService.withLock(
+      `user:${userId}:presence`,
+      async () => {
+        const currentSocket = await this.presenceService.getSocketForDevice(
+          userId,
+          deviceId,
+        );
+        if (currentSocket && currentSocket !== client.id) return; // Reconnected
+
+        // Apply grace period before marking offline
+        const lastConnectionTime =
+          client.data['lastConnectionTime'] ?? disconnectTime;
+        if (disconnectTime - lastConnectionTime < REALTIME_RECONNECT_GRACE_MS) {
+          return;
+        }
+        if (currentSocket) return; // Reconnected during grace
+
+        await this.presenceService.removeConnection(userId, deviceId);
+
+        const activeDevices =
+          await this.presenceService.getActiveDevices(userId);
+        if (activeDevices.length === 0) {
+          this.server
+            .to(`user:${userId}`)
+            .emit(NotificationEvents.NOTIFICATION_USER_OFFLINE, { userId });
+        }
+      },
+      REDIS_LOCK_TTL_MS,
     );
-    if (currentSocket && currentSocket !== client.id) return; // Reconnected
-
-    // Apply grace period before marking offline
-    if (
-      disconnectTime - (client.data['lastConnectionTime'] ?? 0) <
-      REALTIME_RECONNECT_GRACE_MS
-    ) {
-      return;
-    }
-
-    await this.redisService.withLock(`user:${userId}:presence`, async () => {
-      const currentSocket = await this.presenceService.getSocketForDevice(
-        userId,
-        deviceId,
-      );
-      if (currentSocket) return; // Reconnected during grace
-
-      await this.presenceService.removeConnection(userId, deviceId);
-
-      const activeDevices = await this.presenceService.getActiveDevices(userId);
-      if (activeDevices.length === 0) {
-        this.server
-          .to(`user:${userId}`)
-          .emit(NotificationEvents.NOTIFICATION_USER_OFFLINE, { userId });
-      }
-    });
   }
 
   @SubscribeMessage(ClientEvents.ACKNOWLEDGED)
