@@ -56,7 +56,7 @@ export class RideService {
       userIds,
       event,
       namespace: WebSocketNamespace.RIDE,
-      websocketRoomIds: roomId ? [`ride:${roomId}`] : [],
+      roomId: roomId ? `ride:${roomId}` : null,
       options: {
         strategy: DeliveryStrategy.WS_THEN_PUSH,
         emitToRoom: !!roomId,

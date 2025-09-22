@@ -42,6 +42,26 @@ export class PresenceService {
     return Number(result) === 1;
   }
 
+  async updateActiveRoom(
+    userId: string,
+    deviceId: string,
+    roomId: string,
+    ttlSeconds: number,
+  ) {
+    if (!userId?.trim() || !deviceId?.trim() || !roomId?.trim()) return;
+
+    const key = RealtimeKeys.deviceActiveRoom(userId, deviceId);
+
+    await this.redisService.client.set(key, roomId, 'EX', ttlSeconds);
+  }
+
+  async getActiveRoom(userId: string, deviceId: string) {
+    if (!userId?.trim() || !deviceId?.trim()) return null;
+
+    const key = RealtimeKeys.deviceActiveRoom(userId, deviceId);
+    return await this.redisService.client.get(key);
+  }
+
   async removeConnection(userId: string, deviceId: string) {
     if (!userId?.trim() || !deviceId?.trim()) return;
     // Lua for atomic remove: del only if exists

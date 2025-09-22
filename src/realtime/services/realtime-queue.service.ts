@@ -98,13 +98,29 @@ export class RealtimeQueueService {
           }
 
           try {
-            emitToSocketFn(job, socketId);
+            let canEmit = false;
+
+            if (!job.roomId) {
+              // user-level job → always emit
+              canEmit = true;
+            } else {
+              // room-level job → check device active room
+              const activeRoom = await this.presenceService.getActiveRoom(
+                userId,
+                deviceId,
+              );
+              canEmit = activeRoom === job.roomId;
+            }
+
+            if (canEmit) {
+              emitToSocketFn(job, socketId);
+              await this.confirmDelivery(jobId, userId, deviceId);
+            }
 
             // --- Mark as delivered ---
             await this.realtimeStore
               .attemptCount(userId, deviceId, jobId)
               .increment();
-            await this.confirmDelivery(jobId, userId, deviceId);
           } catch (err) {
             // increment attempt count even on WS failure
             await this.realtimeStore
@@ -215,9 +231,23 @@ export class RealtimeQueueService {
 
               try {
                 if (isDeviceOnline) {
-                  // WS will deliver immediately, just remove pending
-                  await this.confirmDelivery(jobId, userId, deviceId);
-                  return;
+                  const activeRoom = await this.presenceService.getActiveRoom(
+                    userId,
+                    deviceId,
+                  );
+                  const isInRoom =
+                    job.roomId == null || activeRoom === job.roomId;
+
+                  if (isInRoom) {
+                    // Online & correct room → WS delivered already, just confirm
+                    await this.confirmDelivery(jobId, userId, deviceId);
+                    return;
+                  } else {
+                    // Online but wrong room → push immediately, no grace
+                    await sendPushFn(userId, deviceId, job);
+                    await this.confirmDelivery(jobId, userId, deviceId);
+                    return;
+                  }
                 }
 
                 // Only send push if grace period passed

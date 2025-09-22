@@ -19,7 +19,7 @@ export interface RealtimePayload {
 export interface RealtimeJob {
   jobId: string;
   userIds: string[];
-  websocketRoomIds: string[];
+  roomId: string | null;
   event: NotificationEvents;
   namespace: WebSocketNamespace;
   payload: RealtimePayload;

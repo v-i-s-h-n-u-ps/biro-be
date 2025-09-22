@@ -43,20 +43,13 @@ export abstract class BaseRealtimeProcessor {
   }
   protected async emitToWs(job: RealtimeJob) {
     job.userIds = this.dedupeArray(job.userIds);
-    job.websocketRoomIds = this.dedupeArray(job.websocketRoomIds);
 
-    const {
-      userIds = [],
-      websocketRoomIds = [],
-      event,
-      options,
-      namespace,
-    } = job;
+    const { userIds = [], roomId, event, options, namespace } = job;
 
     const { wsPayload } = getNotificationPayload(job);
 
     // --- Emit to rooms ---
-    if (options.emitToRoom && websocketRoomIds.length) {
+    if (options.emitToRoom && roomId) {
       const isNew = await this.realtimeStore.dedupSet(
         job.jobId,
         'global',
@@ -64,19 +57,20 @@ export abstract class BaseRealtimeProcessor {
       );
       if (!isNew) return;
 
-      for (const roomId of websocketRoomIds) {
-        try {
-          this.wsService.emitToRoom(namespace, roomId, event, wsPayload);
-        } catch (err) {
-          this.logger.error(`emitToRoom failed for room ${roomId}`, err);
-        }
+      try {
+        this.wsService.emitToRoom(namespace, roomId, event, wsPayload);
+      } catch (err) {
+        this.logger.error(`emitToRoom failed for room ${roomId}`, err);
       }
     }
 
     // --- Emit per-user per-device ---
     if (options.emitToUser && userIds.length) {
       for (const userId of userIds) {
-        const deviceIds = await this.presenceService.getActiveDevices(userId);
+        const devices = await this.userDeviceService.getDevicesByUserIds([
+          userId,
+        ]);
+        const deviceIds = devices.map((d) => d.deviceToken);
         if (!deviceIds.length) continue;
 
         const dedupMap = await this.realtimeStore.dedupMultiSet(
@@ -91,13 +85,39 @@ export abstract class BaseRealtimeProcessor {
           await this.queueService.addPendingForDevice(userId, deviceId, job);
 
           try {
-            const socketId = await this.presenceService.getSocketForDevice(
-              userId,
-              deviceId,
-            );
-            if (!socketId) continue;
+            if (!job.roomId) {
+              const socketId = await this.presenceService.getSocketForDevice(
+                userId,
+                deviceId,
+              );
+              if (!socketId) continue;
 
-            this.wsService.emitToSocket(namespace, socketId, event, wsPayload);
+              this.wsService.emitToSocket(
+                namespace,
+                socketId,
+                event,
+                wsPayload,
+              );
+            } else {
+              const activeRoom = await this.presenceService.getActiveRoom(
+                userId,
+                deviceId,
+              );
+              if (activeRoom !== job.roomId) continue;
+
+              const socketId = await this.presenceService.getSocketForDevice(
+                userId,
+                deviceId,
+              );
+              if (!socketId) continue;
+
+              this.wsService.emitToSocket(
+                namespace,
+                socketId,
+                event,
+                wsPayload,
+              );
+            }
           } catch (err) {
             this.logger.error(
               `emitToSocket failed for ${userId}:${deviceId}`,

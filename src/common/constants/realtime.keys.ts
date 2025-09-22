@@ -17,4 +17,6 @@ export const RealtimeKeys = {
   pendingJobValue: (userId: string, deviceId: string, jobId: string) =>
     `${userId}|${deviceId}|${jobId}`,
   deviceKey: (userId: string, deviceId: string) => `${userId}:${deviceId}`,
+  deviceActiveRoom: (userId: string, deviceId: string) =>
+    `presence:user:${userId}:device:${deviceId}:active_room`,
 };
