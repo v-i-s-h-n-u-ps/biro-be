@@ -48,10 +48,7 @@ export class AuthenticationController {
       enableImplicitConversion: true,
     });
     if (device.deviceToken) {
-      await this.userDeviceService.deregisterDevice(
-        req.user,
-        device.deviceToken,
-      );
+      await this.userDeviceService.deregisterDevice(device.deviceToken);
     }
     await this.authService.logout(req.user.firebaseUid);
   }

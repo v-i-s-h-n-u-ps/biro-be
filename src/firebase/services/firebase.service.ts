@@ -6,6 +6,7 @@ import * as admin from 'firebase-admin';
 import { QueueName } from 'src/common/constants/common.enum';
 import { eventPriorityMap } from 'src/common/constants/message-priority.constant';
 import { NotificationEvents } from 'src/common/constants/notification-events.enum';
+import { UserDeviceService } from 'src/users/services/user-devices.service';
 
 import {
   FIREBASE_BATCH_SIZE,
@@ -18,10 +19,7 @@ import {
 } from '../interfaces/firebase-delivery.interface';
 
 type NotificationOptions =
-  | {
-      type: 'silent' | 'normal';
-      activityId?: undefined;
-    }
+  | { type: 'silent' | 'normal'; activityId?: undefined }
   | { type: 'live'; activityId: string };
 
 @Injectable()
@@ -33,11 +31,9 @@ export class FirebaseService {
     @Inject('FIREBASE_ADMIN') private readonly firebaseAdmin: typeof admin,
     @InjectQueue(QueueName.FIREBASE_DELIVERY)
     private readonly firebaseQueue: Queue<FirebaseDeliveryJob>,
+    private readonly userDeviceService: UserDeviceService,
   ) {}
 
-  /**
-   * Verify Firebase ID token and return decoded payload
-   */
   async verify(idToken: string): Promise<admin.auth.DecodedIdToken> {
     return this.firebaseAdmin.auth().verifyIdToken(idToken);
   }
@@ -99,9 +95,7 @@ export class FirebaseService {
       'messaging/server-unavailable',
       'messaging/too-many-requests',
     ];
-
-    const errorCode = error?.code;
-    return retryableCodes.includes(errorCode);
+    return retryableCodes.includes(error.code);
   }
 
   private async deliverBatch(
@@ -129,19 +123,22 @@ export class FirebaseService {
             token: tokens[idx],
             error: resp.error,
           });
-          this.logger.warn(
-            `Failed to send to token ${tokens[idx]}: ${resp.error?.message}`,
-          );
         }
       });
+      if (result.failedTokens.length > 0) {
+        this.logger.warn(
+          `Batch of ${tokens.length} tokens completed with ${result.failedTokens.length} failures (sample: ${result.failedTokens
+            .slice(0, 5)
+            .map((t) => t.token)
+            .join(', ')})`,
+        );
+      }
     } catch (err: unknown) {
       this.logger.error(`Batch delivery failed: `, err);
-      // Mark all as failed if batch operation fails
       tokens.forEach((token) => {
         result.failedTokens.push({ token, error: err as admin.FirebaseError });
       });
     }
-
     return result;
   }
 
@@ -168,42 +165,12 @@ export class FirebaseService {
         delay: FIREBASE_DELIVERY_BACKOFF_MS,
       },
       removeOnComplete: true,
-      removeOnFail: false, // Keep failed jobs for analysis
+      removeOnFail: false,
     });
 
     return job.id.toString();
   }
 
-  /**
-   * Send a notification to a single device
-   */
-  async sendNotificationToDevice(
-    token: string,
-    payload: admin.messaging.MessagingPayload,
-    options: NotificationOptions = { type: 'normal' },
-  ) {
-    const message = this.getNotificationPayload(payload, options);
-    try {
-      await this.firebaseAdmin.messaging().send({ ...message, token });
-      return true;
-    } catch (err: unknown) {
-      this.logger.error(`Failed to send notification`, err);
-      if (this.isRetryableError(err as admin.FirebaseError)) {
-        await this.queueFirebaseDelivery(
-          token,
-          payload,
-          payload.data.jobId,
-          options,
-        );
-      }
-
-      return false;
-    }
-  }
-
-  /**
-   * Send a notification to multiple devices
-   */
   async sendNotificationToDevices(
     tokens: string[],
     payload: admin.messaging.MessagingPayload,
@@ -225,15 +192,13 @@ export class FirebaseService {
         const retryableTokens: string[] = [];
         const failedTokens: string[] = [];
 
-        response.responses.forEach((resp, idx) => {
+        response.responses.map((resp, idx) => {
           const token = chunk[idx];
           if (!resp.success) {
-            if (this.isRetryableError(resp.error)) retryableTokens.push(token);
+            if (this.isRetryableError(resp.error)) {
+              retryableTokens.push(token);
+            }
             failedTokens.push(token);
-
-            this.logger.warn(
-              `Failed to send to token ${token}: ${resp.error?.message}`,
-            );
           }
         });
 
@@ -306,8 +271,6 @@ export class FirebaseService {
 
     for (const { token, error } of failedTokens) {
       const errorCode = error?.code;
-
-      // Token is no longer valid, should be removed from database
       if (
         errorCode === 'messaging/invalid-registration-token' ||
         errorCode === 'messaging/registration-token-not-registered'
@@ -319,7 +282,6 @@ export class FirebaseService {
     if (invalidTokens.length > 0) {
       this.logger.warn(`Found ${invalidTokens.length} invalid FCM tokens`);
     }
-
     return invalidTokens;
   }
 
@@ -331,16 +293,10 @@ export class FirebaseService {
     return chunks;
   }
 
-  /**
-   * Optionally create a custom Firebase token for the user
-   */
   async createCustomToken(uid: string): Promise<string> {
     return this.firebaseAdmin.auth().createCustomToken(uid);
   }
 
-  /**
-   * Revoke refresh tokens for a user
-   */
   async revokeTokens(uid: string) {
     await this.firebaseAdmin.auth().revokeRefreshTokens(uid);
   }

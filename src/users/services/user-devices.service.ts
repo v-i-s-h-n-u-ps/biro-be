@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 import { RegisterDeviceDto } from '../dtos/register-device.dto';
 import { UserDevice } from '../entities/user-devices.entity';
@@ -30,13 +30,13 @@ export class UserDeviceService {
     return this.userDeviceRepo.save(device);
   }
 
-  async deregisterDevice(user: User, deviceToken: string): Promise<void> {
+  async deregisterDevice(deviceToken: string): Promise<void> {
     const device = await this.userDeviceRepo.findOne({
-      where: { deviceToken, user },
+      where: { deviceToken },
     });
 
     if (!device) {
-      throw new NotFoundException('Device not found for this user');
+      throw new NotFoundException('Device not found');
     }
 
     device.isActive = false;
@@ -51,6 +51,10 @@ export class UserDeviceService {
       .set({ isActive: false })
       .where('deviceToken IN (:...tokens)', { tokens })
       .execute();
+  }
+
+  async getDeviceByIds(ids: string[]): Promise<UserDevice[]> {
+    return await this.userDeviceRepo.findBy({ id: In(ids), isActive: true });
   }
 
   async getDevicesByUser(user: User): Promise<UserDevice[]> {

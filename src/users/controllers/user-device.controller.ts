@@ -16,11 +16,8 @@ export class UserDeviceController {
   }
 
   @Patch('deregister')
-  async deregisterDevice(
-    @Req() req: Request,
-    @Body() dto: DeregisterDeviceDto,
-  ) {
-    await this.userDeviceService.deregisterDevice(req.user, dto.deviceToken);
+  async deregisterDevice(@Body() dto: DeregisterDeviceDto) {
+    await this.userDeviceService.deregisterDevice(dto.deviceToken);
     return { success: true };
   }
 }

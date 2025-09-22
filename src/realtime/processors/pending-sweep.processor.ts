@@ -31,8 +31,13 @@ export class PendingSweepProcessor {
           async (_, deviceIds, jobPayload) => {
             if (jobPayload.options.strategy === DeliveryStrategy.WS_ONLY)
               return;
+            if (!deviceIds.length) return;
+            const devices =
+              await this.userDeviceService.getDeviceByIds(deviceIds);
+            if (!devices.length) return;
+            const tokens = devices.map((d) => d.deviceToken);
             const payload = getNotificationPayload(jobPayload);
-            await this.firebaseService.sendNotificationToDevices(deviceIds, {
+            await this.firebaseService.sendNotificationToDevices(tokens, {
               notification: payload.notification,
               data: payload.pushData,
             });
