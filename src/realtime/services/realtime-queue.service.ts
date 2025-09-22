@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import pLimit from 'p-limit';
 
-import { RealtimeKeys } from 'src/common/constants/realtime.keys';
 import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
 
@@ -83,10 +82,8 @@ export class RealtimeQueueService {
       deviceId,
     );
     if (!jobIds.length) return;
-
-    const key = RealtimeKeys.userDevices(userId);
     const socketId = await this.presenceService.getSocketForDevice(
-      key,
+      userId,
       deviceId,
     );
     if (!socketId) return;
@@ -211,9 +208,9 @@ export class RealtimeQueueService {
                 }
                 return;
               }
-              const key = RealtimeKeys.userDevices(userId);
+
               const activeDevices =
-                await this.presenceService.getActiveDevices(key);
+                await this.presenceService.getActiveDevices(userId);
               const isDeviceOnline = activeDevices.includes(deviceId);
 
               try {
