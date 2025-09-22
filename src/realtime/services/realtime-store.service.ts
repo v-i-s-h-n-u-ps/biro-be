@@ -3,7 +3,6 @@ import { Injectable } from '@nestjs/common';
 import { RealtimeKeys } from 'src/common/constants/realtime.keys';
 import { RedisService } from 'src/common/redis.service';
 
-import { REALTIME_JOB_TTL_SECONDS } from '../constants/realtime.constants';
 import { RealtimeJob } from '../interfaces/realtime-job.interface';
 
 @Injectable()
@@ -18,35 +17,45 @@ export class RealtimeStoreService {
     ttlSeconds: number,
   ) {
     if (!userId?.trim() || !deviceId?.trim() || !jobId?.trim()) return;
-    // Converted to Lua for atomicity
+
     const lua = `
       local hashKey = KEYS[1]
       local zsetKey = KEYS[2]
+      local mappingSetKey = KEYS[3]
       local jobId = ARGV[1]
       local enqueuedAt = ARGV[2]
       local ttl = tonumber(ARGV[3])
       local expiryTs = tonumber(ARGV[4])
-      local value = ARGV[5]
+      local pendingJobValue = ARGV[5]
+      local deviceKey = ARGV[6]
 
-      -- Use pipeline for atomic execution
+      -- Add job to device pending hash
       redis.call('HSET', hashKey, jobId, '0|' .. enqueuedAt)
       redis.call('EXPIRE', hashKey, ttl)
-      redis.call('ZADD', zsetKey, expiryTs, value)
+
+      -- Add job to pending expiry zset
+      redis.call('ZADD', zsetKey, expiryTs, pendingJobValue)
+
+      -- Add device mapping for this job
+      redis.call('SADD', mappingSetKey, deviceKey)
+      redis.call('EXPIRE', mappingSetKey, ttl * 1.5)
 
       return 1
     `;
+
     await this.redisService.client.eval(
       lua,
-      2,
+      3,
       RealtimeKeys.devicePendingHash(userId, deviceId),
       RealtimeKeys.pendingExpiryZset(),
+      RealtimeKeys.pendingMapping(jobId),
       jobId,
       Date.now().toString(),
       ttlSeconds,
       Date.now() + ttlSeconds * 1000,
       RealtimeKeys.pendingJobValue(userId, deviceId, jobId),
+      RealtimeKeys.deviceKey(userId, deviceId),
     );
-    await this.jobDeviceMapping(jobId).add(userId, deviceId);
   }
 
   async removePendingJob(userId: string, deviceId: string, jobId: string) {
@@ -136,26 +145,6 @@ export class RealtimeStoreService {
       maxCount,
     );
     return Array.isArray(result) ? (result as string[]) : [];
-  }
-
-  jobDeviceMapping(jobId: string) {
-    const setKey = RealtimeKeys.pendingMapping(jobId);
-
-    return {
-      add: async (userId: string, deviceId: string) => {
-        const deviceKey = RealtimeKeys.deviceKey(userId, deviceId);
-        await this.redisService.withTransaction((multi) => {
-          multi.sadd(setKey, deviceKey);
-          // Keep mapping for longer than job itself to prevent early deletion
-          multi.expire(setKey, REALTIME_JOB_TTL_SECONDS * 1.5);
-        });
-      },
-
-      remove: async (userId: string, deviceId: string) => {
-        const deviceKey = RealtimeKeys.deviceKey(userId, deviceId);
-        return await this.redisService.client.srem(setKey, deviceKey);
-      },
-    };
   }
 
   async removePendingJobFully(userId: string, deviceId: string, jobId: string) {

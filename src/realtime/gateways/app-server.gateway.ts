@@ -14,6 +14,7 @@ import {
   ClientEvents,
   NotificationEvents,
 } from 'src/common/constants/notification-events.enum';
+import { RealtimeKeys } from 'src/common/constants/realtime.keys';
 import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
 import { type PresenceSocket } from 'src/common/types/socket.types';
@@ -62,7 +63,8 @@ export class AppServerGateway
     }
     client.data.deviceId = deviceId;
     await this.redisService.withLock(`user:${userId}:presence`, async () => {
-      await this.presenceService.addConnection(userId, deviceId, client.id);
+      const key = RealtimeKeys.userDevices(userId);
+      await this.presenceService.addConnection(key, deviceId, client.id);
       this.server
         .to(`user:${userId}`)
         .emit(NotificationEvents.NOTIFICATION_USER_ONLINE, { userId });
@@ -100,8 +102,9 @@ export class AppServerGateway
 
     const disconnectTime = Date.now();
 
+    const key = RealtimeKeys.userDevices(userId);
     const currentSocket = await this.presenceService.getSocketForDevice(
-      userId,
+      key,
       deviceId,
     );
     if (currentSocket && currentSocket !== client.id) return; // Reconnected
@@ -116,50 +119,18 @@ export class AppServerGateway
 
     await this.redisService.withLock(`user:${userId}:presence`, async () => {
       const currentSocket = await this.presenceService.getSocketForDevice(
-        userId,
+        key,
         deviceId,
       );
       if (currentSocket) return; // Reconnected during grace
-
-      await this.presenceService.removeConnection(userId, deviceId);
-
-      const activeDevices = await this.presenceService.getActiveDevices(userId);
+      await this.presenceService.removeConnection(key, deviceId);
+      const activeDevices = await this.presenceService.getActiveDevices(key);
       if (activeDevices.length === 0) {
         this.server
           .to(`user:${userId}`)
           .emit(NotificationEvents.NOTIFICATION_USER_OFFLINE, { userId });
       }
     });
-  }
-
-  @SubscribeMessage(ClientEvents.PRESENCE_JOIN)
-  async handlePresenceJoin(
-    @ConnectedSocket() client: PresenceSocket,
-    @MessageBody() data: { userId: string; deviceId: string },
-  ) {
-    if (!data.userId?.trim() || !data.deviceId?.trim()) {
-      client.disconnect();
-      return;
-    }
-    client.data = client.data || {};
-    client.data.userId = data.userId;
-    client.data.deviceId = data.deviceId;
-    await client.join(`user:${data.userId}`);
-    await this.redisService.withLock(
-      `user:${data.userId}:presence`,
-      async () => {
-        await this.presenceService.addConnection(
-          data.userId,
-          data.deviceId,
-          client.id,
-        );
-        this.server
-          .to(`user:${data.userId}`)
-          .emit(NotificationEvents.NOTIFICATION_USER_ONLINE, {
-            userId: data.userId,
-          });
-      },
-    );
   }
 
   @SubscribeMessage(ClientEvents.ACKNOWLEDGED)

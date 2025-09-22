@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { WebSocketNamespace } from 'src/common/constants/common.enum';
+import { RealtimeKeys } from 'src/common/constants/realtime.keys';
 import { PresenceService } from 'src/common/presence.service';
 import { RedisService } from 'src/common/redis.service';
 import { WebsocketService } from 'src/realtime/services/websocket.service';
@@ -67,7 +68,9 @@ export class RideLocationService {
   }
 
   async isUserOnline(userId: string) {
-    const devices = await this.presenceService.getActiveDevices(userId);
+    if (!userId?.trim()) return false;
+    const key = RealtimeKeys.userDevices(userId);
+    const devices = await this.presenceService.getActiveDevices(key);
     return devices.length > 0;
   }
 

@@ -1,15 +1,14 @@
 import { Injectable } from '@nestjs/common';
 
-import { RealtimeKeys } from './constants/realtime.keys';
 import { RedisService } from './redis.service';
 
 @Injectable()
 export class PresenceService {
   constructor(private readonly redisService: RedisService) {}
 
-  async addConnection(userId: string, deviceId: string, socketId: string) {
-    if (!userId?.trim() || !deviceId?.trim()) {
-      throw new Error('Invalid userId or deviceId');
+  async addConnection(key: string, deviceId: string, socketId: string) {
+    if (!key?.trim() || !deviceId?.trim()) {
+      throw new Error('Invalid key or deviceId');
     }
     // Lua for atomic add: set only if not exists or update if different socket
     const lua = `
@@ -35,15 +34,15 @@ export class PresenceService {
     const result = await this.redisService.client.eval(
       lua,
       1,
-      RealtimeKeys.userDevices(userId),
+      key,
       deviceId,
-      socketId,
+      socketId.trim(),
     );
     return Number(result) === 1;
   }
 
-  async removeConnection(userId: string, deviceId: string) {
-    if (!userId?.trim() || !deviceId?.trim()) return;
+  async removeConnection(key: string, deviceId: string) {
+    if (!key?.trim() || !deviceId?.trim()) return;
     // Lua for atomic remove: del only if exists
     const lua = `
       local key = KEYS[1]
@@ -54,12 +53,7 @@ export class PresenceService {
       end
       return 0
     `;
-    await this.redisService.client.eval(
-      lua,
-      1,
-      RealtimeKeys.userDevices(userId),
-      deviceId,
-    );
+    await this.redisService.client.eval(lua, 1, key, deviceId);
   }
 
   async removeConnectionsBatch(
@@ -110,15 +104,15 @@ export class PresenceService {
     await this.redisService.client.eval(lua, 0, ...args);
   }
 
-  async getActiveDevices(userId: string): Promise<string[]> {
-    if (!userId?.trim()) return [];
+  async getActiveDevices(key: string): Promise<string[]> {
+    if (!key?.trim()) return [];
     // Use HSCAN for large hashes instead of HKEYS
     const devices: string[] = [];
     let cursor = '0';
     let keys: string[] = [];
     do {
       const [newCursor, fields] = await this.redisService.client.hscan(
-        RealtimeKeys.userDevices(userId),
+        key,
         cursor,
         'COUNT',
         100,
@@ -131,21 +125,16 @@ export class PresenceService {
   }
 
   async getSocketForDevice(
-    userId: string,
+    key: string,
     deviceId: string,
   ): Promise<string | null> {
-    if (!userId?.trim() || !deviceId?.trim()) return null;
-    return await this.redisService.client.hget(
-      RealtimeKeys.userDevices(userId),
-      deviceId,
-    );
+    if (!key?.trim() || !deviceId?.trim()) return null;
+    return await this.redisService.client.hget(key, deviceId);
   }
 
-  async getActiveSockets(userId: string): Promise<string[]> {
-    if (!userId?.trim()) return [];
-    const res = await this.redisService.client.hvals(
-      RealtimeKeys.userDevices(userId),
-    );
+  async getActiveSockets(key: string): Promise<string[]> {
+    if (!key?.trim()) return [];
+    const res = await this.redisService.client.hvals(key);
     return res ?? [];
   }
 }

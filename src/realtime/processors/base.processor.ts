@@ -4,6 +4,7 @@ import { type Job } from 'bull';
 import { MessagingPayload } from 'firebase-admin/messaging';
 
 import { DeliveryStrategy } from 'src/common/constants/common.enum';
+import { RealtimeKeys } from 'src/common/constants/realtime.keys';
 import { PresenceService } from 'src/common/presence.service';
 import { FirebaseService } from 'src/firebase/services/firebase.service';
 import { UserDeviceService } from 'src/users/services/user-devices.service';
@@ -76,7 +77,8 @@ export abstract class BaseRealtimeProcessor {
     // --- Emit per-user per-device ---
     if (options.emitToUser && userIds.length) {
       for (const userId of userIds) {
-        const deviceIds = await this.presenceService.getActiveDevices(userId);
+        const key = RealtimeKeys.userDevices(userId);
+        const deviceIds = await this.presenceService.getActiveDevices(key);
         if (!deviceIds.length) continue;
 
         const dedupMap = await this.realtimeStore.dedupMultiSet(
@@ -92,7 +94,7 @@ export abstract class BaseRealtimeProcessor {
 
           try {
             const socketId = await this.presenceService.getSocketForDevice(
-              userId,
+              key,
               deviceId,
             );
             if (!socketId) continue;

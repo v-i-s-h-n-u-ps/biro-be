@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { WebSocketNamespace } from 'src/common/constants/common.enum';
+import { RealtimeKeys } from 'src/common/constants/realtime.keys';
 import { PresenceService } from 'src/common/presence.service';
 
 import { AppServerGateway } from '../gateways/app-server.gateway';
@@ -31,7 +32,8 @@ export class WebsocketService {
     payload: unknown,
   ) {
     if (!userId?.trim()) return;
-    const sockets = await this.presenceService.getActiveSockets(userId);
+    const key = RealtimeKeys.userDevices(userId);
+    const sockets = await this.presenceService.getActiveSockets(key);
     if (sockets.length === 0) return;
     sockets.forEach((socketId) =>
       this.appServerGateway.server
