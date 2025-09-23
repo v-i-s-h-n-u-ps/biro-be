@@ -53,6 +53,12 @@ export class UserDevice {
   @Column({ name: 'is_emulator', type: 'boolean', default: false })
   isEmulator: boolean;
 
+  @Column({ name: 'notifications_enabled', type: 'boolean', default: true })
+  notificationsEnabled: boolean;
+
+  @Column({ name: 'notifications_importance', type: 'int', nullable: true })
+  notificationsImportance?: number;
+
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   @Index()

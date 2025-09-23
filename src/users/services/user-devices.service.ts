@@ -54,7 +54,11 @@ export class UserDeviceService {
   }
 
   async getDeviceByIds(ids: string[]): Promise<UserDevice[]> {
-    return await this.userDeviceRepo.findBy({ id: In(ids), isActive: true });
+    return await this.userDeviceRepo.findBy({
+      id: In(ids),
+      isActive: true,
+      notificationsEnabled: true,
+    });
   }
 
   async getDevicesByUser(user: User): Promise<UserDevice[]> {
