@@ -21,6 +21,9 @@ export class UserDevice {
   @Column({ name: 'device_token', type: 'varchar', length: 512 })
   deviceToken: string;
 
+  @Column({ name: 'device_id', type: 'varchar', length: 256, nullable: true })
+  deviceId: string;
+
   @Column({ name: 'platform', type: 'varchar', length: 50 })
   platform: 'ios' | 'android' | 'web';
 

@@ -67,7 +67,7 @@ export abstract class BaseRealtimeProcessor {
         const devices = await this.userDeviceService.getDevicesByUserIds([
           userId,
         ]);
-        const deviceIds = devices.map((d) => d.id);
+        const deviceIds = devices.map((d) => d.deviceId);
         if (!deviceIds.length) continue;
 
         const dedupMap = await this.realtimeStore.dedupMultiSet(
@@ -135,16 +135,16 @@ export abstract class BaseRealtimeProcessor {
     );
     try {
       switch (strategy) {
-        case DeliveryStrategy.WS_ONLY: {
+        case DeliveryStrategy.WsOnly: {
           await this.emitToWs(job.data);
           break;
         }
-        case DeliveryStrategy.PUSH_ONLY: {
+        case DeliveryStrategy.PushOnly: {
           for (const userId of userIds) {
             const devices = await this.userDeviceService.getDevicesByUserIds([
               userId,
             ]);
-            const deviceIds = devices.map((d) => d.id);
+            const deviceIds = devices.map((d) => d.deviceId);
 
             const dedupMap = await this.realtimeStore.dedupMultiSet(
               job.data.jobId,
@@ -164,7 +164,7 @@ export abstract class BaseRealtimeProcessor {
           }
           break;
         }
-        case DeliveryStrategy.WS_THEN_PUSH: {
+        case DeliveryStrategy.WsThenPush: {
           await this.emitToWs(job.data);
           break;
         }

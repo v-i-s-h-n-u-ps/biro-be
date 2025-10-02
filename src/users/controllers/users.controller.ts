@@ -53,7 +53,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.Admin)
   async assignRoles(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: UpdateUserRolesDto,

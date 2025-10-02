@@ -29,7 +29,7 @@ export class FirebaseService {
 
   constructor(
     @Inject('FIREBASE_ADMIN') private readonly firebaseAdmin: typeof admin,
-    @InjectQueue(QueueName.FIREBASE_DELIVERY)
+    @InjectQueue(QueueName.FirebaseDelivery)
     private readonly firebaseQueue: Queue<FirebaseDeliveryJob>,
     private readonly userDeviceService: UserDeviceService,
   ) {}

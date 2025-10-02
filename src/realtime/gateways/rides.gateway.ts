@@ -39,10 +39,10 @@ export class RideGateway extends BaseGateway implements OnModuleInit {
   server: Server;
 
   onModuleInit() {
-    this.wsService.registerGateway(WebSocketNamespace.RIDE, this.server);
+    this.wsService.registerGateway(WebSocketNamespace.Ride, this.server);
   }
 
-  @SubscribeMessage(ClientEvents.JOIN_RIDE)
+  @SubscribeMessage(ClientEvents.JoinRide)
   async handleJoinRide(
     @ConnectedSocket() client: PresenceSocket,
     @MessageBody() data: { rideId: string },
@@ -55,14 +55,14 @@ export class RideGateway extends BaseGateway implements OnModuleInit {
 
     // send only to this client
     await this.wsService.emitToUser(
-      WebSocketNamespace.RIDE,
+      WebSocketNamespace.Ride,
       userId,
-      NotificationEvents.NOTIFICATION_RIDE_CURRENT_LOCATION,
+      NotificationEvents.NotificationRideCurrentLocation,
       locations,
     );
   }
 
-  @SubscribeMessage(ClientEvents.UPDATE_LOCATION)
+  @SubscribeMessage(ClientEvents.UpdateLocation)
   async handleUpdateLocation(
     @MessageBody()
     data: {
@@ -79,14 +79,14 @@ export class RideGateway extends BaseGateway implements OnModuleInit {
     });
 
     this.wsService.emitToRoom(
-      WebSocketNamespace.RIDE,
+      WebSocketNamespace.Ride,
       `ride:${data.rideId}`,
-      NotificationEvents.NOTIFICATION_RIDE_LOCATION_UPDATE,
+      NotificationEvents.NotificationRideLocationUpdate,
       data,
     );
   }
 
-  @SubscribeMessage(ClientEvents.LEAVE_RIDE)
+  @SubscribeMessage(ClientEvents.LeaveRide)
   async handleLeaveRide(
     @MessageBody() data: { rideId: string; userId: string },
   ) {

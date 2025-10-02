@@ -1,59 +1,54 @@
 export enum Gender {
-  MALE = 'male',
-  FEMALE = 'female',
-  OTHER = 'other',
+  Male = 'male',
+  Female = 'female',
+  Other = 'other',
 }
 
 export enum QueueName {
-  NOTIFICATIONS = 'notifications',
-  CHAT = 'chat',
-  PENDING_SWEEP = 'pending-sweep',
-  FIREBASE_DELIVERY = 'firebase-delivery',
+  Notifications = 'notifications',
+  Chat = 'chat',
+  PendingSweep = 'pending_sweep',
+  FirebaseDelivery = 'firebase_delivery',
 }
 
 export enum WebSocketNamespace {
-  NOTIFICATIONS = 'notifications',
-  CHAT = 'chat',
-  RIDE = 'ride',
-}
-
-export enum NotificationChannel {
-  WEBSOCKET = 'websocket',
-  PUSH = 'push',
+  Notifications = 'notifications',
+  Chat = 'chat',
+  Ride = 'ride',
 }
 
 export enum UserStatus {
-  ACTIVE = 'active',
-  INACTIVE = 'inactive',
-  BANNED = 'banned',
+  Active = 'active',
+  Inactive = 'inactive',
+  Banned = 'banned',
 }
 
 export enum FollowStatus {
-  PENDING = 'pending',
-  ACCEPTED = 'accepted',
+  Pending = 'pending',
+  Accepted = 'accepted',
 }
 
 export enum ParticipantStatus {
-  PENDING = 'pending',
-  ACCEPTED = 'accepted',
-  DECLINED = 'declined',
+  Pending = 'pending',
+  Accepted = 'accepted',
+  Declined = 'declined',
 }
 
 export enum RideStatus {
-  UPCOMING = 'upcoming',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
+  Upcoming = 'upcoming',
+  InProgress = 'in_progress',
+  Completed = 'completed',
+  Cancelled = 'cancelled',
 }
 
 export enum DeliveryStrategy {
-  WS_ONLY = 'ws_only',
-  PUSH_ONLY = 'push_only',
-  WS_THEN_PUSH = 'ws_then_push',
+  WsOnly = 'ws_only',
+  PushOnly = 'push_only',
+  WsThenPush = 'ws_then_push',
 }
 
 export enum ResourceType {
-  RIDE = 'ride',
-  CHAT = 'chat',
-  ORGANIZATION = 'organization',
+  Ride = 'ride',
+  Chat = 'chat',
+  Organization = 'organization',
 }

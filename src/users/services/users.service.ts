@@ -50,7 +50,6 @@ export class UsersService {
     return uniqueUsername;
   }
 
-  // Create a new user after Firebase signup
   async createUser({
     firebaseUid,
     email,
@@ -62,7 +61,7 @@ export class UsersService {
     phone?: string;
     emailVerified?: boolean;
   }) {
-    const defaultRole = await this.rbacService.getRole(Role.USER);
+    const defaultRole = await this.rbacService.getRole(Role.User);
     const username = await this.generateUniqueUsername(email);
     const user = this.userRepo.create({
       username,
@@ -75,19 +74,16 @@ export class UsersService {
     return this.userRepo.save(user);
   }
 
-  // Get user by Firebase UID
   async findByFirebaseUid(firebaseUid: string): Promise<User | null> {
     return this.userRepo.findOne({ where: { firebaseUid } });
   }
 
-  // Get user by database ID
   async findById(id: string): Promise<User> {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
 
-  // Assign roles to user (admin only)
   async assignRoles(userId: string, roleIds: Role[]) {
     const user = await this.findById(userId);
     const roles = await this.rbacService.getRolesByIds(roleIds);

@@ -13,7 +13,7 @@ import {
 import { RealtimeQueueService } from '../services/realtime-queue.service';
 import { getNotificationPayload } from '../utils/payload.helper';
 
-@Processor(QueueName.PENDING_SWEEP) // this queue is used only for the repeatable sweep job
+@Processor(QueueName.PendingSweep) // this queue is used only for the repeatable sweep job
 export class PendingSweepProcessor {
   constructor(
     private readonly queueService: RealtimeQueueService,
@@ -29,8 +29,7 @@ export class PendingSweepProcessor {
       async () => {
         await this.queueService.sweepExpiredPendingAndFallback(
           async (_, deviceIds, jobPayload) => {
-            if (jobPayload.options.strategy === DeliveryStrategy.WS_ONLY)
-              return;
+            if (jobPayload.options.strategy === DeliveryStrategy.WsOnly) return;
             if (!deviceIds.length) return;
             const devices =
               await this.userDeviceService.getDeviceByIds(deviceIds);

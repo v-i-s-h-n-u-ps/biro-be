@@ -28,7 +28,7 @@ export class Follow {
   @Column({
     type: 'enum',
     enum: FollowStatus,
-    default: FollowStatus.PENDING,
+    default: FollowStatus.Pending,
   })
   status: FollowStatus;
 

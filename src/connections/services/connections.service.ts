@@ -84,10 +84,10 @@ export class ConnectionsService {
         .substring(2, 8)}`,
       userIds,
       event,
-      namespace: WebSocketNamespace.NOTIFICATIONS,
+      namespace: WebSocketNamespace.Notifications,
       roomId: null,
       options: {
-        strategy: DeliveryStrategy.PUSH_ONLY,
+        strategy: DeliveryStrategy.PushOnly,
         emitToRoom: false,
         emitToUser: true,
       },
@@ -126,7 +126,7 @@ export class ConnectionsService {
       let follow = manager.create(this.followRepo.target, {
         follower,
         following,
-        status: isPrivate ? FollowStatus.PENDING : FollowStatus.ACCEPTED,
+        status: isPrivate ? FollowStatus.Pending : FollowStatus.Accepted,
       });
 
       follow = await manager.save(follow);
@@ -134,19 +134,18 @@ export class ConnectionsService {
       if (isPrivate) {
         await this.sendNotification({
           userIds: [followerId],
-          event: NotificationEvents.NOTIFICATION_FOLLOW_REQUEST,
+          event: NotificationEvents.NotificationFollowRequest,
           title: 'Follow Request Sent',
           body: `Your follow request to ${following.profile.name} is pending`,
           icon: follower.profile.avatarUrl,
           data: { followerId },
         });
       } else {
-        // Update counts
         await this.increaseFollowCounts(manager, followerId, followingId);
 
         await this.sendNotification({
           userIds: [followerId],
-          event: NotificationEvents.NOTIFICATION_FOLLOW_NEW,
+          event: NotificationEvents.NotificationFollowNew,
           title: 'Followed',
           icon: following.profile.avatarUrl,
           body: `You started following ${following.profile.name}`,
@@ -154,7 +153,7 @@ export class ConnectionsService {
         });
         await this.sendNotification({
           userIds: [followingId],
-          event: NotificationEvents.NOTIFICATION_FOLLOW_NEW,
+          event: NotificationEvents.NotificationFollowNew,
           title: 'New Follower',
           icon: follower.profile.avatarUrl,
           body: `${follower.profile.name} started following you`,
@@ -172,7 +171,7 @@ export class ConnectionsService {
       where: {
         id: followId,
         following: { id: userId },
-        status: FollowStatus.PENDING,
+        status: FollowStatus.Pending,
       },
       relations: ['follower', 'following'],
     });
@@ -185,7 +184,7 @@ export class ConnectionsService {
     }
 
     await this.followRepo.manager.transaction(async (manager) => {
-      follow.status = FollowStatus.ACCEPTED;
+      follow.status = FollowStatus.Accepted;
       await manager.save(follow);
 
       await this.increaseFollowCounts(manager, follow.follower.id, userId);
@@ -194,7 +193,7 @@ export class ConnectionsService {
     await this.sendNotification({
       userIds: [follow.follower.id],
       title: 'Follow Request Accepted',
-      event: NotificationEvents.NOTIFICATION_FOLLOW_ACCEPTED,
+      event: NotificationEvents.NotificationFollowAccepted,
       icon: follow.following.profile.avatarUrl,
       body: `${follow.following.profile.name} accepted your follow request`,
       data: { followingId: userId },
@@ -202,7 +201,7 @@ export class ConnectionsService {
     await this.sendNotification({
       userIds: [userId],
       title: 'You Followed',
-      event: NotificationEvents.NOTIFICATION_FOLLOW_NEW,
+      event: NotificationEvents.NotificationFollowNew,
       icon: follow.follower.profile.avatarUrl,
       body: `You started following ${follow.follower.profile.name}`,
       data: { followerId: follow.follower.id },
@@ -217,7 +216,7 @@ export class ConnectionsService {
       where: {
         id: followId,
         following: { id: userId },
-        status: FollowStatus.PENDING,
+        status: FollowStatus.Pending,
       },
       relations: ['follower'],
     });
@@ -240,7 +239,7 @@ export class ConnectionsService {
       where: {
         follower: { id: followerId },
         following: { id: followingId },
-        status: FollowStatus.ACCEPTED,
+        status: FollowStatus.Accepted,
       },
       relations: ['follower', 'following'],
     });
@@ -270,28 +269,25 @@ export class ConnectionsService {
     if (existing) throw new BadRequestException('User already blocked');
 
     await this.followRepo.manager.transaction(async (manager) => {
-      // Remove any existing follow relationships
       const followsToRemove = await manager.find(Follow, {
         where: [
           {
             follower: { id: blockerId },
             following: { id: blockedId },
-            status: FollowStatus.ACCEPTED,
+            status: FollowStatus.Accepted,
           },
           {
             follower: { id: blockedId },
             following: { id: blockerId },
-            status: FollowStatus.ACCEPTED,
+            status: FollowStatus.Accepted,
           },
         ],
       });
 
       if (followsToRemove.length > 0) {
-        // Collect follower and following IDs
         const followerIds = followsToRemove.map((f) => f.follower.id);
         const followingIds = followsToRemove.map((f) => f.following.id);
 
-        // Bulk decrement followersCount
         await manager
           .createQueryBuilder()
           .update(User)
@@ -342,7 +338,7 @@ export class ConnectionsService {
 
   async getFollowers(userId: string): Promise<User[]> {
     const follows = await this.followRepo.find({
-      where: { following: { id: userId }, status: FollowStatus.ACCEPTED },
+      where: { following: { id: userId }, status: FollowStatus.Accepted },
       relations: ['follower', 'follower.profile'],
       order: { createdAt: 'DESC' },
     });
@@ -351,7 +347,7 @@ export class ConnectionsService {
 
   async getFollowing(userId: string): Promise<User[]> {
     const follows = await this.followRepo.find({
-      where: { follower: { id: userId }, status: FollowStatus.ACCEPTED },
+      where: { follower: { id: userId }, status: FollowStatus.Accepted },
       relations: ['following', 'following.profile'],
       order: { createdAt: 'DESC' },
     });
@@ -360,7 +356,7 @@ export class ConnectionsService {
 
   async getFollowRequests(userId: string): Promise<User[]> {
     const requests = await this.followRepo.find({
-      where: { following: { id: userId }, status: FollowStatus.PENDING },
+      where: { following: { id: userId }, status: FollowStatus.Pending },
       relations: ['follower', 'follower.profile'],
       order: { createdAt: 'DESC' },
     });

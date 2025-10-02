@@ -1,4 +1,3 @@
-// firebase-delivery.interface.ts
 import * as admin from 'firebase-admin';
 
 export type NotificationOptions =

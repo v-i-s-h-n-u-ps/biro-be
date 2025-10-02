@@ -7,7 +7,7 @@ import { StoriesService } from './stories.service';
 export class StoriesCleanup {
   constructor(private readonly storiesService: StoriesService) {}
 
-  @Cron('0 * * * *') // every hour
+  @Cron('0 * * * *')
   async cleanupExpired() {
     await this.storiesService.deleteExpiredStories();
   }

@@ -52,5 +52,5 @@ export class CreateRideDto {
 
   @IsEnum(RideStatus)
   @IsOptional()
-  status?: RideStatus = RideStatus.UPCOMING;
+  status?: RideStatus = RideStatus.Upcoming;
 }

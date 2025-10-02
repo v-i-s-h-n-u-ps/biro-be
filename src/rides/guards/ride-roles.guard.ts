@@ -19,7 +19,7 @@ export class RideRolesGuard extends ResourceRolesGuard<RideParticipant, Ride> {
   ) {
     super(
       reflector,
-      ResourceType.RIDE,
+      ResourceType.Ride,
       'participant',
       'ride',
       'participantRole',

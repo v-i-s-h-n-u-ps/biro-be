@@ -1,36 +1,36 @@
 export enum Role {
-  USER = 'user',
-  ADMIN = 'admin',
+  User = 'user',
+  Admin = 'admin',
 }
 
 export enum Permission {
   // Profile management
-  UPDATE_OWN_PROFILE = 'update:own:profile',
-  UPDATE_ANY_PROFILE = 'update:any:profile',
+  UpdateOwnProfile = 'update:own:profile',
+  UpdateAnyProfile = 'update:any:profile',
 
   // Rides
-  CREATE_RIDE = 'create:ride',
-  UPDATE_OWN_RIDE = 'update:own:ride',
-  UPDATE_ANY_RIDE = 'update:any:ride',
-  VIEW_RIDE = 'view:ride',
-  JOIN_RIDE = 'join:ride',
+  CreateRide = 'create:ride',
+  UpdateOwnRide = 'update:own:ride',
+  UpdateAnyRide = 'update:any:ride',
+  ViewRide = 'view:ride',
+  JoinRide = 'join:ride',
 
   // Following
-  FOLLOW_USER = 'follow:user',
-  UNFOLLOW_USER = 'unfollow:user',
+  FollowUser = 'follow:user',
+  UnfollowUser = 'unfollow:user',
 
   // Stories
-  CREATE_STORY = 'create:story',
-  UPDATE_OWN_STORY = 'update:own:story',
-  UPDATE_ANY_STORY = 'update:any:story',
-  VIEW_STORY = 'view:story',
+  CreateStory = 'create:story',
+  UpdateOwnStory = 'update:own:story',
+  UpdateAnyStory = 'update:any:story',
+  ViewStory = 'view:story',
 }
 
 export enum ResourceRole {
-  RIDE_OWNER = 'ride_owner',
-  RIDE_MODERATOR = 'ride_moderator',
-  RIDE_MEMBER = 'ride_member',
-  STORY_OWNER = 'story_owner',
-  CHAT_OWNER = 'chat_owner',
-  CHAT_MEMBER = 'chat_member',
+  RideOwner = 'ride_owner',
+  RideModerator = 'ride_moderator',
+  RideMember = 'ride_member',
+  StoryOwner = 'story_owner',
+  ChatOwner = 'chat_owner',
+  ChatMember = 'chat_member',
 }

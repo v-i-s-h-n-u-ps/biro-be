@@ -14,7 +14,7 @@ import { WebsocketService } from '../services/websocket.service';
 
 import { BaseRealtimeProcessor } from './base.processor';
 
-@Processor(QueueName.NOTIFICATIONS)
+@Processor(QueueName.Notifications)
 @Injectable()
 export class AppNotificationProcessor extends BaseRealtimeProcessor {
   constructor(

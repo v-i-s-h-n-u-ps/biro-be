@@ -52,8 +52,8 @@ export class SuggestionService {
       minConnections = 0,
       maxStoryAgeDays = 3,
     } = filters;
-    const status = FollowStatus.ACCEPTED;
-    const participantStatus = ParticipantStatus.ACCEPTED;
+    const status = FollowStatus.Accepted;
+    const participantStatus = ParticipantStatus.Accepted;
     const dateThreshold = new Date(
       Date.now() - maxStoryAgeDays * 24 * 60 * 60 * 1000,
     );

@@ -31,7 +31,7 @@ export class RideLocationService {
     await this.redisService.client.expire(key, this.TTL_SECONDS);
 
     this.wsService.emitToRoom(
-      WebSocketNamespace.RIDE,
+      WebSocketNamespace.Ride,
       `ride:${rideId}`,
       'LOCATION_UPDATE',
       location,
@@ -56,7 +56,7 @@ export class RideLocationService {
     }
 
     this.wsService.emitToRoom(
-      WebSocketNamespace.RIDE,
+      WebSocketNamespace.Ride,
       `ride:${rideId}`,
       'PARTICIPANT_LEFT',
       {
@@ -76,7 +76,7 @@ export class RideLocationService {
     const key = this.getRedisKey(rideId);
     await this.redisService.client.del(key);
     this.wsService.emitToRoom(
-      WebSocketNamespace.RIDE,
+      WebSocketNamespace.Ride,
       `ride:${rideId}`,
       'RIDE_ENDED',
       { rideId },

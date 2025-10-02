@@ -81,7 +81,6 @@ export class StoriesService {
       });
     }
 
-    // sort stories unseen first
     return Array.from(feedMap.values()).map((item) => ({
       ...item,
       stories: item.stories.sort((a, b) => {

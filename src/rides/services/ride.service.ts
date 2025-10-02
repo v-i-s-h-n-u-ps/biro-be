@@ -55,10 +55,10 @@ export class RideService {
         .substring(2, 8)}`,
       userIds,
       event,
-      namespace: WebSocketNamespace.RIDE,
+      namespace: WebSocketNamespace.Ride,
       roomId: roomId ? `ride:${roomId}` : null,
       options: {
-        strategy: DeliveryStrategy.WS_THEN_PUSH,
+        strategy: DeliveryStrategy.WsThenPush,
         emitToRoom: !!roomId,
         emitToUser: true,
       },
@@ -77,7 +77,7 @@ export class RideService {
     await this.rideRepo.save(ride);
 
     const role = await this.rbacService.getResourceRoles(
-      ResourceRole.RIDE_OWNER,
+      ResourceRole.RideOwner,
     );
     if (!role)
       throw new NotFoundException('Owner role not found in the system');
@@ -85,7 +85,7 @@ export class RideService {
     const participant = this.participantRepo.create({
       ride,
       participant: owner,
-      status: ParticipantStatus.ACCEPTED,
+      status: ParticipantStatus.Accepted,
       participantRole: role,
     });
     await this.participantRepo.save(participant);
@@ -113,16 +113,16 @@ export class RideService {
     if (!ride) throw new NotFoundException('Ride not found');
 
     const acceptedCount = ride.participants.filter(
-      (p) => p.status === ParticipantStatus.ACCEPTED,
+      (p) => p.status === ParticipantStatus.Accepted,
     ).length;
     if (acceptedCount >= 100) throw new BadRequestException('Ride is full');
     const participantRole = await this.rbacService.getResourceRoles(
-      ResourceRole.RIDE_MEMBER,
+      ResourceRole.RideMember,
     );
 
     const status = ride.isPublic
-      ? ParticipantStatus.ACCEPTED
-      : ParticipantStatus.PENDING;
+      ? ParticipantStatus.Accepted
+      : ParticipantStatus.Pending;
     const participant = this.participantRepo.create({
       ride,
       participant: user,
@@ -131,11 +131,11 @@ export class RideService {
     });
     await this.participantRepo.save(participant);
 
-    if (status === ParticipantStatus.ACCEPTED) {
+    if (status === ParticipantStatus.Accepted) {
       await this.sendNotification({
         userIds: [ride.owner.id],
         icon: user.profile.avatarUrl,
-        event: NotificationEvents.NOTIFICATION_RIDE_PARTICIPANT_JOINED,
+        event: NotificationEvents.NotificationRideParticipantJoined,
         roomId: ride.id,
         title: 'New Participant Joined',
         body: `${user.profile.name} has joined your ride "${ride.title}".`,
@@ -145,7 +145,7 @@ export class RideService {
       await this.sendNotification({
         userIds: [ride.owner.id],
         icon: user.profile.avatarUrl,
-        event: NotificationEvents.NOTIFICATION_PARTICIPANT_REQUEST,
+        event: NotificationEvents.NotificationParticipantRequest,
         title: 'New Participant Request',
         body: `${user.profile.name} has requested to join your ride "${ride.title}".`,
         data: { rideId: ride.id, participantId: participant.id },
@@ -170,13 +170,13 @@ export class RideService {
     });
     if (!participant) throw new NotFoundException('Participant not found');
 
-    participant.status = ParticipantStatus.ACCEPTED;
+    participant.status = ParticipantStatus.Accepted;
     await this.participantRepo.save(participant);
 
     await this.sendNotification({
       userIds: [participant.participant.id],
       icon: participant.participant.profile.avatarUrl,
-      event: NotificationEvents.NOTIFICATION_PARTICIPANT_ACCEPTED,
+      event: NotificationEvents.NotificationParticipantAccepted,
       title: 'Ride Participation Accepted',
       body: `Your request to join the ride "${participant.ride.title}" has been accepted.`,
       data: { rideId: participant.ride.id, participantId: participant.id },
@@ -195,7 +195,7 @@ export class RideService {
     ride.status = status;
     await this.rideRepo.save(ride);
 
-    await this.rideLocationService.cleanupRide(ride.id); // remove Redis locations
+    await this.rideLocationService.cleanupRide(ride.id);
     return ride;
   }
 }

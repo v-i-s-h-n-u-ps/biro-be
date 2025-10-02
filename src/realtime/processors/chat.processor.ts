@@ -14,7 +14,7 @@ import { WebsocketService } from '../services/websocket.service';
 
 import { BaseRealtimeProcessor } from './base.processor';
 
-@Processor(QueueName.CHAT)
+@Processor(QueueName.Chat)
 @Injectable()
 export class ChatProcessor extends BaseRealtimeProcessor {
   constructor(

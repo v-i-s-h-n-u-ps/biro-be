@@ -6,6 +6,10 @@ export class RegisterDeviceDto {
   deviceToken: string;
 
   @IsString()
+  @Length(1, 256)
+  deviceId: string;
+
+  @IsString()
   platform: 'ios' | 'android' | 'web';
 
   @IsOptional()

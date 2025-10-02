@@ -44,10 +44,10 @@ export class RideController {
 
   @Patch(':rideId')
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
-  @Roles(Role.ADMIN)
+  @Roles(Role.Admin)
   @ResourceRoles({
-    resource: ResourceType.RIDE,
-    roles: [ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR],
+    resource: ResourceType.Ride,
+    roles: [ResourceRole.RideOwner, ResourceRole.RideModerator],
   })
   updateRide(
     @Param('rideId', ParseUUIDPipe) rideId: string,
@@ -65,10 +65,10 @@ export class RideController {
   }
 
   @Patch(':rideId/participants/:participantId/accept')
-  @Roles(Role.ADMIN)
+  @Roles(Role.Admin)
   @ResourceRoles({
-    resource: ResourceType.RIDE,
-    roles: [ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR],
+    resource: ResourceType.Ride,
+    roles: [ResourceRole.RideOwner, ResourceRole.RideModerator],
   })
   acceptParticipant(
     @Param('rideId', ParseUUIDPipe) rideId: string,
@@ -90,23 +90,23 @@ export class RideController {
   }
 
   @Patch(':rideId/cancel')
-  @Roles(Role.ADMIN)
+  @Roles(Role.Admin)
   @ResourceRoles({
-    resource: ResourceType.RIDE,
-    roles: [ResourceRole.RIDE_OWNER],
+    resource: ResourceType.Ride,
+    roles: [ResourceRole.RideOwner],
   })
   cancelRide(@Param('rideId', ParseUUIDPipe) rideId: string) {
-    return this.rideService.cancelOrCompleteRide(rideId, RideStatus.CANCELLED);
+    return this.rideService.cancelOrCompleteRide(rideId, RideStatus.Cancelled);
   }
 
   @Patch(':rideId/complete')
-  @Roles(Role.ADMIN)
+  @Roles(Role.Admin)
   @ResourceRoles({
-    resource: ResourceType.RIDE,
-    roles: [ResourceRole.RIDE_OWNER, ResourceRole.RIDE_MODERATOR],
+    resource: ResourceType.Ride,
+    roles: [ResourceRole.RideOwner, ResourceRole.RideModerator],
   })
   completeRide(@Param('rideId', ParseUUIDPipe) rideId: string) {
-    return this.rideService.cancelOrCompleteRide(rideId, RideStatus.COMPLETED);
+    return this.rideService.cancelOrCompleteRide(rideId, RideStatus.Completed);
   }
 
   @Get('nearby')

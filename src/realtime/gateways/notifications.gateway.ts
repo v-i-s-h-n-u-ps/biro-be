@@ -21,7 +21,7 @@ import { BaseGateway } from './base.gateway';
 
 @WebSocketGateway({
   cors: { origin: '*', methods: ['GET', 'POST'], port: 3002 },
-  namespace: WebSocketNamespace.NOTIFICATIONS,
+  namespace: WebSocketNamespace.Notifications,
 })
 export class NotificationsGateway extends BaseGateway implements OnModuleInit {
   constructor(
@@ -38,12 +38,12 @@ export class NotificationsGateway extends BaseGateway implements OnModuleInit {
 
   onModuleInit() {
     this.wsService.registerGateway(
-      WebSocketNamespace.NOTIFICATIONS,
+      WebSocketNamespace.Notifications,
       this.server,
     );
   }
 
-  @SubscribeMessage(ClientEvents.ACKNOWLEDGED)
+  @SubscribeMessage(ClientEvents.Acknowledged)
   async handleAckDelivery(
     @ConnectedSocket() client: PresenceSocket,
     @MessageBody() data: { jobId: string },

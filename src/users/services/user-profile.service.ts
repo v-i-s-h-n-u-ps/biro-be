@@ -27,7 +27,7 @@ export class UserProfileService {
   ): Promise<UserProfile> {
     const profile = await this.getProfile(userId);
 
-    Object.assign(profile, dto); // safely update only provided fields
+    Object.assign(profile, dto);
 
     return this.profileRepo.save(profile);
   }

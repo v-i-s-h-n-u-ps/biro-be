@@ -1,4 +1,3 @@
-// firebase-delivery.processor.ts
 import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Injectable, Logger } from '@nestjs/common';
 import { type Job } from 'bull';
@@ -10,7 +9,7 @@ import { FIREBASE_DELIVERY_ATTEMPTS } from '../constants/firebase-queue.constant
 import { FirebaseDeliveryJob } from '../interfaces/firebase-delivery.interface';
 import { FirebaseService } from '../services/firebase.service';
 
-@Processor(QueueName.FIREBASE_DELIVERY)
+@Processor(QueueName.FirebaseDelivery)
 @Injectable()
 export class FirebaseDeliveryProcessor {
   private readonly logger = new Logger(FirebaseDeliveryProcessor.name);

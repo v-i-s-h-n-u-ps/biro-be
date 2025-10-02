@@ -37,7 +37,7 @@ export class ChatGateway extends BaseGateway implements OnModuleInit {
   @WebSocketServer()
   server: Server;
 
-  @SubscribeMessage(ClientEvents.JOIN_CHAT)
+  @SubscribeMessage(ClientEvents.JoinChat)
   async handleJoinChat(
     @ConnectedSocket() client: PresenceSocket,
     @MessageBody() data: { chatId: string },
@@ -66,7 +66,7 @@ export class ChatGateway extends BaseGateway implements OnModuleInit {
     await client.join(room);
   }
 
-  @SubscribeMessage(ClientEvents.LEAVE_CHAT)
+  @SubscribeMessage(ClientEvents.LeaveChat)
   async handleLeaveChat(
     @ConnectedSocket() client: PresenceSocket,
     @MessageBody() data: { chatId: string },
@@ -86,7 +86,7 @@ export class ChatGateway extends BaseGateway implements OnModuleInit {
   }
 
   onModuleInit() {
-    this.wsService.registerGateway(WebSocketNamespace.CHAT, this.server);
+    this.wsService.registerGateway(WebSocketNamespace.Chat, this.server);
   }
 
   // @SubscribeMessage('MESSAGE_DELIVERED')
@@ -96,7 +96,7 @@ export class ChatGateway extends BaseGateway implements OnModuleInit {
   // ) {
   //   await this.chatService.markAsDelivered(data.messageId, data.userId);
   //   this.wsService.emitToUser(
-  //     WebSocketNamespace.CHAT,
+  //     WebSocketNamespace.Chat,
   //     data.userId,
   //     'MESSAGE_DELIVERED_CONFIRMATION',
   //     { messageId: data.messageId },

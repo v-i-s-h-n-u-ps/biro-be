@@ -36,7 +36,6 @@ export class UserProfile {
   @Column({ type: 'text', nullable: true })
   bio: string;
 
-  // Counts (can be updated via service logic / triggers)
   @Column({ default: 0 })
   followersCount: number;
 

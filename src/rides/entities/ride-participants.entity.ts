@@ -33,7 +33,7 @@ export class RideParticipant {
   @Column({
     type: 'enum',
     enum: ParticipantStatus,
-    default: ParticipantStatus.PENDING,
+    default: ParticipantStatus.Pending,
   })
   status: ParticipantStatus;
 

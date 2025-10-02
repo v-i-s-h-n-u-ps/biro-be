@@ -66,7 +66,7 @@ export class Ride {
   })
   route: string;
 
-  @Column({ type: 'enum', enum: RideStatus, default: RideStatus.UPCOMING })
+  @Column({ type: 'enum', enum: RideStatus, default: RideStatus.Upcoming })
   status: RideStatus;
 
   @OneToMany(() => RideParticipant, (p) => p.ride, { cascade: true })

@@ -18,7 +18,7 @@ import { FirebaseService } from './services/firebase.service';
   imports: [
     ConfigModule,
     BullModule.registerQueue({
-      name: QueueName.FIREBASE_DELIVERY,
+      name: QueueName.FirebaseDelivery,
       defaultJobOptions: {
         attempts: FIREBASE_DELIVERY_ATTEMPTS,
         backoff: {

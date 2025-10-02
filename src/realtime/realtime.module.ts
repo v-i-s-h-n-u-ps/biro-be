@@ -40,10 +40,10 @@ const defaultJobOptions = {
     QueuesModule,
     UsersModule,
     BullModule.registerQueue(
-      { name: QueueName.NOTIFICATIONS, defaultJobOptions },
-      { name: QueueName.CHAT, defaultJobOptions },
+      { name: QueueName.Notifications, defaultJobOptions },
+      { name: QueueName.Chat, defaultJobOptions },
       {
-        name: QueueName.PENDING_SWEEP,
+        name: QueueName.PendingSweep,
         defaultJobOptions: { removeOnComplete: true, removeOnFail: false },
       },
     ),
@@ -67,7 +67,7 @@ const defaultJobOptions = {
 })
 export class RealtimeModule implements OnModuleInit {
   constructor(
-    @InjectQueue(QueueName.PENDING_SWEEP)
+    @InjectQueue(QueueName.PendingSweep)
     private readonly pendingSweepQueue: Queue,
   ) {}
 

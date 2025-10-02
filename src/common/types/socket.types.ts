@@ -9,17 +9,15 @@ export interface PresenceSocketData {
   lastConnectionTime?: number;
 }
 
-// Define the handshake auth structure
 export interface PresenceSocketAuth {
   token?: string;
 }
 
-// Extend Socket type
 export type PresenceSocket = Socket<
-  DefaultEventsMap, // Events from server
-  DefaultEventsMap, // Events to client
-  DefaultEventsMap, // Reserved for ServerSideEvents
-  PresenceSocketData // socket.data
+  DefaultEventsMap,
+  DefaultEventsMap,
+  DefaultEventsMap,
+  PresenceSocketData
 > & {
   handshake: Socket['handshake'] & { auth: PresenceSocketAuth };
 };

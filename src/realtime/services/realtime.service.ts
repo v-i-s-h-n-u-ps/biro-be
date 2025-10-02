@@ -22,9 +22,9 @@ export class RealtimeService {
   private readonly logger = new Logger(RealtimeService.name);
 
   constructor(
-    @InjectQueue(QueueName.NOTIFICATIONS)
+    @InjectQueue(QueueName.Notifications)
     private readonly notificationQueue: Queue<RealtimeJob>,
-    @InjectQueue(QueueName.CHAT)
+    @InjectQueue(QueueName.Chat)
     private readonly chatQueue: Queue<RealtimeJob>,
     private readonly redisService: RedisService,
     private readonly queueService: RealtimeQueueService,
@@ -62,10 +62,10 @@ export class RealtimeService {
       delay: delayMs,
     };
     switch (job.namespace) {
-      case WebSocketNamespace.CHAT:
+      case WebSocketNamespace.Chat:
         await this.chatQueue.add(job.event, job, jobOptions);
         break;
-      case WebSocketNamespace.NOTIFICATIONS:
+      case WebSocketNamespace.Notifications:
         await this.notificationQueue.add(job.event, job, jobOptions);
         break;
       default:

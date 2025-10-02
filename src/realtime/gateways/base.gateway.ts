@@ -51,9 +51,9 @@ export abstract class BaseGateway
       async () => {
         await this.presenceService.addConnection(userId, deviceId, client.id);
         await this.wsService.emitToUser(
-          WebSocketNamespace.NOTIFICATIONS,
+          WebSocketNamespace.Notifications,
           userId,
-          NotificationEvents.NOTIFICATION_USER_ONLINE,
+          NotificationEvents.NotificationUserOnline,
           { userId },
         );
       },
@@ -117,9 +117,9 @@ export abstract class BaseGateway
           await this.presenceService.getActiveDevices(userId);
         if (activeDevices.length === 0) {
           await this.wsService.emitToUser(
-            WebSocketNamespace.NOTIFICATIONS,
+            WebSocketNamespace.Notifications,
             userId,
-            NotificationEvents.NOTIFICATION_USER_OFFLINE,
+            NotificationEvents.NotificationUserOffline,
             { userId },
           );
         }

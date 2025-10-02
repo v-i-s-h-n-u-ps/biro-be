@@ -22,7 +22,7 @@ export class User {
 
   @Index({ unique: true })
   @Column({ type: 'varchar', nullable: false, unique: true })
-  firebaseUid: string; // firebase uid (unique)
+  firebaseUid: string;
 
   @Column({ type: 'citext', nullable: true, unique: true })
   email?: string;
