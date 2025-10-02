@@ -57,7 +57,7 @@ export class DeviceInterceptor implements NestInterceptor {
               return;
             }
             this.userDeviceRepo
-              .upsert({ ...dto, user }, ['deviceId'])
+              .upsert({ ...dto, user, isActive: true }, ['deviceId'])
               .catch((err) =>
                 this.logger.warn(
                   `Failed to update device info for user ${user.id}: `,

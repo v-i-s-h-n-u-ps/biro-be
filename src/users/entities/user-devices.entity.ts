@@ -14,6 +14,7 @@ import { User } from './users.entity';
 
 @Entity('user_devices')
 @Unique(['deviceToken'])
+@Index(['user', 'isActive'])
 export class UserDevice {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -24,20 +25,17 @@ export class UserDevice {
   @Column({ name: 'device_id', type: 'varchar', length: 256, nullable: true })
   deviceId: string;
 
-  @Column({ name: 'platform', type: 'varchar', length: 50 })
+  @Column({ name: 'platform', type: 'enum', enum: ['ios', 'android', 'web'] })
   platform: 'ios' | 'android' | 'web';
-
-  @Column({ name: 'os_version', type: 'varchar', length: 50, nullable: true })
-  osVersion: string;
 
   @Column({ name: 'os_name', type: 'varchar', length: 50, nullable: true })
   osName?: string;
 
+  @Column({ name: 'os_version', type: 'varchar', length: 50, nullable: true })
+  osVersion: string;
+
   @Column({ nullable: true, name: 'app_version', type: 'varchar', length: 50 })
   appVersion: string;
-
-  @Column({ name: 'name', type: 'varchar', length: 100, nullable: true })
-  name: string;
 
   @Column({ name: 'model', type: 'varchar', length: 100, nullable: true })
   model: string;

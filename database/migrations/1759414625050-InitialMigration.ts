@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class DeviceInfoSchemaUpdate1758330335835 implements MigrationInterface {
-  name = 'DeviceInfoSchemaUpdate1758330335835';
+export class InitialMigration1759414625050 implements MigrationInterface {
+  name = 'InitialMigration1759414625050';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
@@ -11,7 +11,10 @@ export class DeviceInfoSchemaUpdate1758330335835 implements MigrationInterface {
       `CREATE TABLE "roles" ("id" character varying NOT NULL, "name" character varying NOT NULL, "description" character varying, CONSTRAINT "PK_c1433d71a4838793a49dcad46ab" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "users" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "firebaseUid" character varying NOT NULL, "email" citext, "phone" citext, "username" character varying(50) NOT NULL, "emailVerified" boolean NOT NULL DEFAULT true, "isActive" boolean NOT NULL DEFAULT true, "lastLoginAt" TIMESTAMP, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "profile_id" uuid, CONSTRAINT "UQ_e621f267079194e5428e19af2f3" UNIQUE ("firebaseUid"), CONSTRAINT "UQ_97672ac88f789774dd47f7c8be3" UNIQUE ("email"), CONSTRAINT "UQ_a000cca60bcf04454e727699490" UNIQUE ("phone"), CONSTRAINT "UQ_fe0bb3f6520ee0469504521e710" UNIQUE ("username"), CONSTRAINT "REL_23371445bd80cb3e413089551b" UNIQUE ("profile_id"), CONSTRAINT "PK_a3ffb1c0c8416b9fc6f907b7433" PRIMARY KEY ("id"))`,
+      `CREATE TYPE "public"."users_status_enum" AS ENUM('active', 'inactive', 'banned')`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "users" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "firebaseUid" character varying NOT NULL, "email" citext, "phone" citext, "username" character varying(50) NOT NULL, "emailVerified" boolean NOT NULL DEFAULT true, "status" "public"."users_status_enum" NOT NULL DEFAULT 'active', "lastLoginAt" TIMESTAMP, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "profile_id" uuid, CONSTRAINT "UQ_e621f267079194e5428e19af2f3" UNIQUE ("firebaseUid"), CONSTRAINT "UQ_97672ac88f789774dd47f7c8be3" UNIQUE ("email"), CONSTRAINT "UQ_a000cca60bcf04454e727699490" UNIQUE ("phone"), CONSTRAINT "UQ_fe0bb3f6520ee0469504521e710" UNIQUE ("username"), CONSTRAINT "REL_23371445bd80cb3e413089551b" UNIQUE ("profile_id"), CONSTRAINT "PK_a3ffb1c0c8416b9fc6f907b7433" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "IDX_e621f267079194e5428e19af2f" ON "users" ("firebaseUid") `,
@@ -23,13 +26,37 @@ export class DeviceInfoSchemaUpdate1758330335835 implements MigrationInterface {
       `CREATE TABLE "user_profiles" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "name" character varying(100), "avatarUrl" character varying, "gender" "public"."user_profiles_gender_enum" NOT NULL, "dateOfBirth" date, "bio" text, "followersCount" integer NOT NULL DEFAULT '0', "followingCount" integer NOT NULL DEFAULT '0', "ridesCount" integer NOT NULL DEFAULT '0', "isPrivate" boolean NOT NULL DEFAULT false, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "user_id" uuid, CONSTRAINT "REL_6ca9503d77ae39b4b5a6cc3ba8" UNIQUE ("user_id"), CONSTRAINT "PK_1ec6662219f4605723f1e41b6cb" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
+      `CREATE TYPE "public"."user_devices_platform_enum" AS ENUM('ios', 'android', 'web')`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "user_devices" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "device_token" character varying(512) NOT NULL, "device_id" character varying(256), "platform" "public"."user_devices_platform_enum" NOT NULL, "os_name" character varying(50), "os_version" character varying(50), "app_version" character varying(50), "model" character varying(100), "manufacturer" character varying(100), "is_active" boolean NOT NULL DEFAULT true, "is_emulator" boolean NOT NULL DEFAULT false, "notifications_enabled" boolean NOT NULL DEFAULT true, "notifications_importance" integer, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "user_id" uuid, CONSTRAINT "UQ_968092155b7725daf6d66e7bda5" UNIQUE ("device_token"), CONSTRAINT "PK_c9e7e648903a9e537347aba4371" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_28bd79e1b3f7c1168f0904ce24" ON "user_devices" ("user_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_af68e6c1289dcf7db401ceded5" ON "user_devices" ("user_id", "is_active") `,
+    );
+    await queryRunner.query(
       `CREATE TABLE "story_view" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "story_id" uuid, "viewer_id" uuid, CONSTRAINT "PK_3dde1e17de695c7a967525251c6" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE TABLE "stories" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "media" text NOT NULL, "expires_at" TIMESTAMP WITH TIME ZONE NOT NULL, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "user_id" uuid, CONSTRAINT "PK_bb6f880b260ed96c452b32a39f0" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
+      `CREATE TYPE "public"."follows_status_enum" AS ENUM('pending', 'accepted')`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "follows" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "status" "public"."follows_status_enum" NOT NULL DEFAULT 'pending', "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "follower_id" uuid, "following_id" uuid, CONSTRAINT "UQ_8109e59f691f0444b43420f6987" UNIQUE ("follower_id", "following_id"), CONSTRAINT "PK_8988f607744e16ff79da3b8a627" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
       `CREATE TABLE "resource_roles" ("id" character varying NOT NULL, "name" character varying NOT NULL, "description" character varying, CONSTRAINT "PK_02757dc4767f45cc4c3e351b8ea" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."ride_participants_status_enum" AS ENUM('pending', 'accepted', 'declined')`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "ride_participants" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "status" "public"."ride_participants_status_enum" NOT NULL DEFAULT 'pending', "created_at" TIME WITH TIME ZONE NOT NULL DEFAULT now(), "ride_id" uuid, "user_id" uuid, "participant_role_id" character varying, CONSTRAINT "PK_e83231dd0230d8b127ad96a8b2c" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE TYPE "public"."rides_status_enum" AS ENUM('upcoming', 'in_progress', 'completed', 'cancelled')`,
@@ -45,24 +72,6 @@ export class DeviceInfoSchemaUpdate1758330335835 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "rides_start_point_idx" ON "rides" USING GiST ("start_point") `,
-    );
-    await queryRunner.query(
-      `CREATE TYPE "public"."ride_participants_status_enum" AS ENUM('pending', 'accepted', 'declined')`,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "ride_participants" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "status" "public"."ride_participants_status_enum" NOT NULL DEFAULT 'pending', "created_at" TIME WITH TIME ZONE NOT NULL DEFAULT now(), "ride_id" uuid, "user_id" uuid, "participant_role_id" character varying, CONSTRAINT "PK_e83231dd0230d8b127ad96a8b2c" PRIMARY KEY ("id"))`,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "user_devices" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "device_token" character varying(512) NOT NULL, "platform" character varying(50) NOT NULL, "os_version" character varying(50), "os_name" character varying(50), "app_version" character varying(50), "name" character varying(100), "model" character varying(100), "manufacturer" character varying(100), "is_active" boolean NOT NULL DEFAULT true, "is_emulator" boolean NOT NULL DEFAULT false, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "user_id" uuid, CONSTRAINT "UQ_968092155b7725daf6d66e7bda5" UNIQUE ("device_token"), CONSTRAINT "PK_c9e7e648903a9e537347aba4371" PRIMARY KEY ("id"))`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_28bd79e1b3f7c1168f0904ce24" ON "user_devices" ("user_id") `,
-    );
-    await queryRunner.query(
-      `CREATE TYPE "public"."follows_status_enum" AS ENUM('pending', 'accepted')`,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "follows" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "status" "public"."follows_status_enum" NOT NULL DEFAULT 'pending', "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "follower_id" uuid, "following_id" uuid, CONSTRAINT "UQ_8109e59f691f0444b43420f6987" UNIQUE ("follower_id", "following_id"), CONSTRAINT "PK_8988f607744e16ff79da3b8a627" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE TABLE "user_blocks" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "blocker_id" uuid, "blocked_id" uuid, CONSTRAINT "PK_0bae5f5cab7574a84889462187c" PRIMARY KEY ("id"))`,
@@ -101,6 +110,9 @@ export class DeviceInfoSchemaUpdate1758330335835 implements MigrationInterface {
       `ALTER TABLE "user_profiles" ADD CONSTRAINT "FK_6ca9503d77ae39b4b5a6cc3ba88" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
+      `ALTER TABLE "user_devices" ADD CONSTRAINT "FK_28bd79e1b3f7c1168f0904ce241" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "story_view" ADD CONSTRAINT "FK_d63cb87c2d329028f80737046b4" FOREIGN KEY ("story_id") REFERENCES "stories"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
@@ -110,7 +122,10 @@ export class DeviceInfoSchemaUpdate1758330335835 implements MigrationInterface {
       `ALTER TABLE "stories" ADD CONSTRAINT "FK_ab4ee230faf536e7c5aee12f4ea" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
-      `ALTER TABLE "rides" ADD CONSTRAINT "FK_1bbb8165fbb06d82f5a9b429c92" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+      `ALTER TABLE "follows" ADD CONSTRAINT "FK_54b5dc2739f2dea57900933db66" FOREIGN KEY ("follower_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "follows" ADD CONSTRAINT "FK_c518e3988b9c057920afaf2d8c0" FOREIGN KEY ("following_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
       `ALTER TABLE "ride_participants" ADD CONSTRAINT "FK_8ceb6dc15e18660f94edea94005" FOREIGN KEY ("ride_id") REFERENCES "rides"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
@@ -122,13 +137,7 @@ export class DeviceInfoSchemaUpdate1758330335835 implements MigrationInterface {
       `ALTER TABLE "ride_participants" ADD CONSTRAINT "FK_b3aafb5b5b29ba217796871c5a8" FOREIGN KEY ("participant_role_id") REFERENCES "resource_roles"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
-      `ALTER TABLE "user_devices" ADD CONSTRAINT "FK_28bd79e1b3f7c1168f0904ce241" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "follows" ADD CONSTRAINT "FK_54b5dc2739f2dea57900933db66" FOREIGN KEY ("follower_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "follows" ADD CONSTRAINT "FK_c518e3988b9c057920afaf2d8c0" FOREIGN KEY ("following_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+      `ALTER TABLE "rides" ADD CONSTRAINT "FK_1bbb8165fbb06d82f5a9b429c92" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
       `ALTER TABLE "user_blocks" ADD CONSTRAINT "FK_dfcd8a81016d1de587fbd2d70bf" FOREIGN KEY ("blocker_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
@@ -182,13 +191,7 @@ export class DeviceInfoSchemaUpdate1758330335835 implements MigrationInterface {
       `ALTER TABLE "user_blocks" DROP CONSTRAINT "FK_dfcd8a81016d1de587fbd2d70bf"`,
     );
     await queryRunner.query(
-      `ALTER TABLE "follows" DROP CONSTRAINT "FK_c518e3988b9c057920afaf2d8c0"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "follows" DROP CONSTRAINT "FK_54b5dc2739f2dea57900933db66"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "user_devices" DROP CONSTRAINT "FK_28bd79e1b3f7c1168f0904ce241"`,
+      `ALTER TABLE "rides" DROP CONSTRAINT "FK_1bbb8165fbb06d82f5a9b429c92"`,
     );
     await queryRunner.query(
       `ALTER TABLE "ride_participants" DROP CONSTRAINT "FK_b3aafb5b5b29ba217796871c5a8"`,
@@ -200,7 +203,10 @@ export class DeviceInfoSchemaUpdate1758330335835 implements MigrationInterface {
       `ALTER TABLE "ride_participants" DROP CONSTRAINT "FK_8ceb6dc15e18660f94edea94005"`,
     );
     await queryRunner.query(
-      `ALTER TABLE "rides" DROP CONSTRAINT "FK_1bbb8165fbb06d82f5a9b429c92"`,
+      `ALTER TABLE "follows" DROP CONSTRAINT "FK_c518e3988b9c057920afaf2d8c0"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "follows" DROP CONSTRAINT "FK_54b5dc2739f2dea57900933db66"`,
     );
     await queryRunner.query(
       `ALTER TABLE "stories" DROP CONSTRAINT "FK_ab4ee230faf536e7c5aee12f4ea"`,
@@ -210,6 +216,9 @@ export class DeviceInfoSchemaUpdate1758330335835 implements MigrationInterface {
     );
     await queryRunner.query(
       `ALTER TABLE "story_view" DROP CONSTRAINT "FK_d63cb87c2d329028f80737046b4"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "user_devices" DROP CONSTRAINT "FK_28bd79e1b3f7c1168f0904ce241"`,
     );
     await queryRunner.query(
       `ALTER TABLE "user_profiles" DROP CONSTRAINT "FK_6ca9503d77ae39b4b5a6cc3ba88"`,
@@ -239,30 +248,35 @@ export class DeviceInfoSchemaUpdate1758330335835 implements MigrationInterface {
     );
     await queryRunner.query(`DROP TABLE "role_permissions"`);
     await queryRunner.query(`DROP TABLE "user_blocks"`);
-    await queryRunner.query(`DROP TABLE "follows"`);
-    await queryRunner.query(`DROP TYPE "public"."follows_status_enum"`);
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_28bd79e1b3f7c1168f0904ce24"`,
-    );
-    await queryRunner.query(`DROP TABLE "user_devices"`);
-    await queryRunner.query(`DROP TABLE "ride_participants"`);
-    await queryRunner.query(
-      `DROP TYPE "public"."ride_participants_status_enum"`,
-    );
     await queryRunner.query(`DROP INDEX "public"."rides_start_point_idx"`);
     await queryRunner.query(`DROP INDEX "public"."rides_end_point_idx"`);
     await queryRunner.query(`DROP INDEX "public"."rides_route_idx"`);
     await queryRunner.query(`DROP TABLE "rides"`);
     await queryRunner.query(`DROP TYPE "public"."rides_status_enum"`);
+    await queryRunner.query(`DROP TABLE "ride_participants"`);
+    await queryRunner.query(
+      `DROP TYPE "public"."ride_participants_status_enum"`,
+    );
     await queryRunner.query(`DROP TABLE "resource_roles"`);
+    await queryRunner.query(`DROP TABLE "follows"`);
+    await queryRunner.query(`DROP TYPE "public"."follows_status_enum"`);
     await queryRunner.query(`DROP TABLE "stories"`);
     await queryRunner.query(`DROP TABLE "story_view"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_af68e6c1289dcf7db401ceded5"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_28bd79e1b3f7c1168f0904ce24"`,
+    );
+    await queryRunner.query(`DROP TABLE "user_devices"`);
+    await queryRunner.query(`DROP TYPE "public"."user_devices_platform_enum"`);
     await queryRunner.query(`DROP TABLE "user_profiles"`);
     await queryRunner.query(`DROP TYPE "public"."user_profiles_gender_enum"`);
     await queryRunner.query(
       `DROP INDEX "public"."IDX_e621f267079194e5428e19af2f"`,
     );
     await queryRunner.query(`DROP TABLE "users"`);
+    await queryRunner.query(`DROP TYPE "public"."users_status_enum"`);
     await queryRunner.query(`DROP TABLE "roles"`);
     await queryRunner.query(`DROP TABLE "permissions"`);
   }

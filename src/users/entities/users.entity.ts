@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 
 import { Roles } from 'src/authorization/rbac/entities/role.entity';
+import { UserStatus } from 'src/common/constants/common.enum';
 
 import { UserProfile } from './user-profile.entity';
 
@@ -36,8 +37,8 @@ export class User {
   @Column({ type: 'boolean', default: true })
   emailVerified: boolean;
 
-  @Column({ type: 'boolean', default: true })
-  isActive: boolean;
+  @Column({ type: 'enum', enum: UserStatus, default: UserStatus.Active })
+  status: UserStatus;
 
   @Column({ type: 'timestamp', nullable: true })
   lastLoginAt?: Date;

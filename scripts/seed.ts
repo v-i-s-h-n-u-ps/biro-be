@@ -7,6 +7,7 @@ import {
 
 import { Permissions } from 'src/authorization/rbac/entities/permission.entity';
 import { Roles } from 'src/authorization/rbac/entities/role.entity';
+import { UserStatus } from 'src/common/constants/common.enum';
 import { Role } from 'src/common/constants/rbac.enum';
 import { User } from 'src/users/entities/users.entity';
 
@@ -44,7 +45,7 @@ async function seed() {
 
   if (!superUser) {
     const adminRole = await roleRepo.findOne({
-      where: { id: Role.ADMIN },
+      where: { id: Role.Admin },
       relations: ['permissions'],
     });
 
@@ -53,7 +54,7 @@ async function seed() {
       email: 'superadmin@example.com',
       username: 'superadmin',
       emailVerified: true,
-      isActive: true,
+      status: UserStatus.Active,
       roles: adminRole ? [adminRole] : [],
     });
 
