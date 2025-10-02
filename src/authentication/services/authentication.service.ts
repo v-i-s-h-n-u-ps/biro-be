@@ -20,10 +20,8 @@ export class AuthenticationService {
       const decoded = await this.firebaseService.verify(idToken);
       const uid = decoded.uid;
 
-      // fetch Firebase user record
       const fbUser = await this.firebaseService.getUser(uid);
 
-      // ✅ if user not in DB, register
       let user = await this.usersService.findByFirebaseUid(uid);
       if (!user) {
         user = await this.usersService.createUser({

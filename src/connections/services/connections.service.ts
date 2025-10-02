@@ -297,7 +297,6 @@ export class ConnectionsService {
           .where('id IN (:...ids)', { ids: followingIds })
           .execute();
 
-        // Bulk decrement followingCount
         await manager
           .createQueryBuilder()
           .update(User)
@@ -307,11 +306,9 @@ export class ConnectionsService {
           .where('id IN (:...ids)', { ids: followerIds })
           .execute();
 
-        // Remove follow rows
         await manager.remove(followsToRemove);
       }
 
-      // Add block
       const block = manager.create(UserBlock, { blocker, blocked });
       await manager.save(block);
     });

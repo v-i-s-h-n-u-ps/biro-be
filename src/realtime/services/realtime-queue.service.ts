@@ -246,7 +246,7 @@ export class RealtimeQueueService {
             );
 
             try {
-              await sendPushFn(userId, deviceIds, job); // 👈 now batched per jobId
+              await sendPushFn(userId, deviceIds, job);
             } catch (err) {
               this.logger.error(
                 `Final push failed for ${jobId} -> ${userId} [${deviceIds.join(',')}]`,

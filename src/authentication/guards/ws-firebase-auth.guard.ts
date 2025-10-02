@@ -20,7 +20,7 @@ export class WsFirebaseAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const client = context.switchToWs().getClient<PresenceSocket>(); // Socket
+    const client = context.switchToWs().getClient<PresenceSocket>();
     const token = client.handshake.auth?.token;
     if (!token) return false;
 

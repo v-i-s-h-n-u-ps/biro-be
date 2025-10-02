@@ -7,7 +7,7 @@ import { Permissions } from './permission.entity';
 @Entity('roles')
 export class Roles {
   @PrimaryColumn({ type: 'varchar' })
-  id: Role; // primary key is the role name string
+  id: Role;
 
   @Column({ nullable: false })
   name?: string;

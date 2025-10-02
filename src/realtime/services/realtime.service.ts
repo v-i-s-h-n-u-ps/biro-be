@@ -33,29 +33,25 @@ export class RealtimeService {
 
   async sendAndForgetNotification(job: RealtimeJob, delayMs = 0) {
     if (!job.userIds?.length && !job.roomId) return;
-    // 1) filter muted users
     const filteredUserIds = await this.realtimeStore.filterMutedUsers(
       job.userIds,
       job.event,
     );
     if (!filteredUserIds.length && !job.options.emitToRoom) return;
-    job.userIds = filteredUserIds; // narrow down recipients
+    job.userIds = filteredUserIds;
     job.createdAt = Date.now();
-    // 2) toggle emitToRoom vs emitToUser if both set (original logic preserved, but clarified)
     if (job.options.emitToRoom && job.options.emitToUser) {
       if (filteredUserIds.length === 0) {
         job.options.emitToUser = false;
       } else {
-        job.options.emitToRoom = false; // Prefer user if users present
+        job.options.emitToRoom = false;
       }
     }
-    // 3) store dedup + job body in Redis (so sweep/pending processors can access)
     const stored = await this.queueService.storeJobWithDedup(job);
     if (!stored.length) {
       this.logger.debug(`Duplicate job ignored: ${job.jobId}`);
       return;
     }
-    // 4) push to appropriate Bull queue (server busy / background processing)
     const jobOptions = {
       attempts: REALTIME_BULL_ATTEMPTS,
       backoff: REALTIME_BACKOFF_DELAY_MS,

@@ -149,13 +149,13 @@ export class PresenceService {
       );
       keys = [...fields];
       cursor = newCursor;
-      devices.push(...keys.filter((_, i) => i % 2 === 0)); // keys are at even indices
+      devices.push(...keys.filter((_, i) => i % 2 === 0));
     } while (
       cursor !== '0' &&
       devices.length < 1000 &&
       keys.length > 0 &&
       iterations < MAX_ITERATIONS
-    ); // safety limit
+    );
     return devices;
   }
 

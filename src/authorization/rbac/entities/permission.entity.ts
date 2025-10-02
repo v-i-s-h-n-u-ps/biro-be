@@ -5,7 +5,7 @@ import { Permission } from 'src/common/constants/rbac.enum';
 @Entity('permissions')
 export class Permissions {
   @PrimaryColumn({ type: 'varchar' })
-  id: Permission; // primary key is the permission name string
+  id: Permission;
 
   @Column({ nullable: true })
   description?: string;

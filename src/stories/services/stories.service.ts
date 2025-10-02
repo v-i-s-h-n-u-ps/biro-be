@@ -32,7 +32,7 @@ export class StoriesService {
   ) {}
 
   async createStory(user: User, mediaUrls: string[]) {
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const stories = mediaUrls.map((url) =>
       this.storyRepo.create({
         user,

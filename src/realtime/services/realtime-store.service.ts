@@ -51,11 +51,11 @@ export class RealtimeStoreService {
 
     await this.redisService.client.eval(
       lua,
-      4, // Changed from 3 to 4
+      4,
       RealtimeKeys.devicePendingHash(userId, deviceId),
       RealtimeKeys.pendingExpiryZset(),
       RealtimeKeys.pendingMapping(jobId),
-      RealtimeKeys.jobDevicesMapping(jobId), // NEW key
+      RealtimeKeys.jobDevicesMapping(jobId),
       jobId,
       Date.now().toString(),
       ttlSeconds,
@@ -199,7 +199,7 @@ export class RealtimeStoreService {
       zsetKey,
       mappingKey,
       jobKey,
-      RealtimeKeys.jobDevicesMapping(jobId), // NEW
+      RealtimeKeys.jobDevicesMapping(jobId),
       jobId,
       deviceKey,
       pendingValue,
@@ -419,14 +419,12 @@ export class RealtimeStoreService {
         RealtimeKeys.dedupKey(jobId, deviceId),
       );
     } else {
-      // global dedup for room-only
       await this.redisService.client.del(
         RealtimeKeys.dedupKey(jobId, 'global'),
       );
     }
   }
 
-  // In RealtimeStoreService
   async cleanupFailedJob(jobId: string): Promise<number> {
     if (!jobId?.trim()) return 0;
 
@@ -506,7 +504,7 @@ export class RealtimeStoreService {
     const results: { [jobId: string]: number } = {};
 
     // Process jobs with limited concurrency to avoid overwhelming Redis
-    const limit = pLimit(5); // Limit to 5 concurrent cleanups
+    const limit = pLimit(5);
     const cleanupPromises = jobIds.map((jobId) =>
       limit(async () => {
         results[jobId] = await this.cleanupFailedJob(jobId);

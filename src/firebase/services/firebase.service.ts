@@ -180,7 +180,7 @@ export class FirebaseService {
     if (!payload.data?.jobId)
       payload.data = { ...payload.data, jobId: crypto.randomUUID() };
 
-    const chunks = this.chunkArray(tokens, this.maxBatchSize); // Firebase max 500
+    const chunks = this.chunkArray(tokens, this.maxBatchSize);
     const message = this.getNotificationPayload(payload, options);
 
     for (const chunk of chunks) {
@@ -238,7 +238,6 @@ export class FirebaseService {
       attempt,
     };
 
-    // Chunk tokens to respect Firebase's 500 limit
     const chunks = this.chunkArray(tokens, this.maxBatchSize);
 
     for (const chunk of chunks) {

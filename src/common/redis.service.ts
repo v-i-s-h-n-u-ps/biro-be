@@ -15,7 +15,7 @@ export class RedisService implements OnApplicationShutdown {
       this.configService.get('REDIS_HOST'),
       {
         db: this.configService.get('REDIS_DB_INDEX'),
-        maxRetriesPerRequest: 3, // Increased retries
+        maxRetriesPerRequest: 3,
       },
     );
     this.adapter = new IoredisAdapter(this.client);
@@ -60,7 +60,6 @@ export class RedisService implements OnApplicationShutdown {
     callback(multi);
     const results = await multi.exec();
     if (!results) return [];
-    // Map [Error | null, unknown] to unknown[] (throw if error)
     return results.map(([err, res]) => {
       if (err) throw err;
       return res as T;
