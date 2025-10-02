@@ -36,6 +36,17 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+      '@typescript-eslint/naming-convention': [
+        'error',
+        {
+          selector: 'enum',
+          format: ['PascalCase'],
+        },
+        {
+          selector: 'enumMember',
+          format: ['PascalCase'],
+        },
+      ],
       'simple-import-sort/imports': [
         'error',
         {

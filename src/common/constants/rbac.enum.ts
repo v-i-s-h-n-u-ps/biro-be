@@ -34,3 +34,10 @@ export enum ResourceRole {
   ChatOwner = 'chat_owner',
   ChatMember = 'chat_member',
 }
+
+export enum RESOURCE {
+  PRO = 'profile',
+  Ride = 'ride',
+  Story = 'story',
+  Chat = 'chat',
+}
